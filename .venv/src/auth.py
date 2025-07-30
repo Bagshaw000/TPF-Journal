@@ -1,10 +1,10 @@
 from src.model import User, Session, ReturnType
 from supabase import create_client, Client
-from .db import supabase_conn,main
+from .db import supabase_conn
 from src.utils import encrypt,decrypt
 from datetime import datetime
 from dotenv import load_dotenv
-from prisma.models import  user
+
 import json
 
 load_dotenv()
@@ -12,11 +12,9 @@ load_dotenv()
 class Auth:
    
     def __init__(self):
-        # url: str = os.environ.get("SUPABASE_URL")
-        # key: str = os.environ.get("SUPABASE_KEY")
-        # supabase: Client = create_client(url, key)
+        
         self.supabase = supabase_conn()
-        pass
+       
         
        
     '''
@@ -25,6 +23,7 @@ class Auth:
     async def create_user(self,data:User)->ReturnType:
         try:
             # Authenticate the user
+            
             response = self.supabase.auth.sign_up(
                     {
                     "email": data.email,
@@ -32,41 +31,33 @@ class Auth:
                 }
             )
             
-            # Parse the Authentication data to json to get the user id
-            test = json.loads(response.model_dump_json())
+            # Get the user id after signup
             
-            user_id : str = test["user"]["id"]
+            usr_id = self.supabase.auth.get_user().user
             
-            
+        
             # If no error the connect to db and store the user details   
             if response:
                 
-                #Database connection
-                db = await main()
-                await db.connect()
+                usr_data = {
+                        "id": usr_id.id,
+                        "first_name": encrypt(data.first_name),
+                        "email": encrypt(data.email) ,
+                        "last_name": encrypt(data.last_name),
+                        "plan": 'free',
+                        "password": encrypt(data.password),
+                        "country": data.country,
+                         "last_update": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
+                    }
                 
-                #Add user data to the database and encrypt sensitive data
-                usr = await user.prisma().create(
-                data={
-                    'id': user_id,
-                    'first_name': encrypt(data.first_name),
-                    'email': encrypt(data.email) ,
-                    'last_name': encrypt(data.last_name),
-                    'plan': 'free',
-                    'password': encrypt(data.password),
-                    'country': data.country,
-                    'last_update': datetime.now()
-                    },
-                )
-                
-                #Disconnect the database 
-                await db.disconnect()
-                
+                usr = self.supabase.table("user").insert(usr_data).execute()
+            
+            
                 #Checking if the data was returned successfully or not
                 if usr:
                 
                     return {
-                        "data":usr.model_dump_json(),
+                        "data":usr,
                         "msg": "Successfully added user data",
                         "status": 200
                     }
@@ -85,24 +76,18 @@ class Auth:
     '''
     async def get_user_by_id(self,id:str)->ReturnType:
         try:
-            #Instantiate a database connection
-            db = await main()
-            await db.connect()
-            
+          
             #Check for user base on the id
-            user_obj = await db.user.find_first(where={
-                'id' : id,
-            }) 
+            user_obj = self.supabase.table('user').select("id").eq(id).execute()
             
             #Disconnect database
-            await db.disconnect()
-            
+           
             #Check if the any data was returned or not
-            if user_obj != None:
+            if user_obj:
                 return {
                     "status":500,
                     "msg": "User already exist",
-                    "data": user_obj.model_dump_json()
+                    "data": user_obj
                 }
             
             return {

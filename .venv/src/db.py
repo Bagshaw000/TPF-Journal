@@ -1,6 +1,5 @@
 import os
-from prisma import Prisma
-from prisma.models import  user
+
 import asyncio
 import os
 from supabase import create_client, Client
@@ -8,9 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-async def main() :
-    db = Prisma(auto_register=True)
-    return db
+
 
 def supabase_conn() -> Client:        
     url: str = os.environ.get("SUPABASE_URL")
@@ -21,8 +18,7 @@ def supabase_conn() -> Client:
     
     return supabase_client
 
-if __name__ == '__main__':
-    asyncio.run(main())    
+if __name__ == '__main__':   
     # asyncio.run(supabase_conn())     
     supabase_client = supabase_conn()        
 
@@ -30,9 +26,3 @@ if __name__ == '__main__':
 
 
 
-# data={
-#                         'first_name': 'Robert',
-#                         'email': 'robert@craigie.dev',
-#                         'last_name': 'Robert',
-#                         'plan': 'free'
-#                     },

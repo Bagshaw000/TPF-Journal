@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from dotenv import load_dotenv
 from src.model import User
 from src.auth import Auth
 import os
 
+from datetime import datetime
 
 load_dotenv()
 
@@ -41,15 +42,21 @@ async def read_root():
     #await dbConn()
     # print("Test")
     # await dbConn()
+    
     public_key = os.environ.get("RSA_PUBLIC_KEY")
     print(public_key)
     return {"Hello": "World"} 
 
 @app.post('/signup')
-async def create_user(req:User):
-    # print(req)
+async def create_user(req:User, res:Response):
+
     user = await auth_class.create_user(req)
     
+    if user.status == 200:
+        res.status_code = status.HTTP_201_CREATED
+        return user
+    
+    res.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     return user
 
 
