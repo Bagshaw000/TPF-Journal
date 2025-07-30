@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "hypercorn main:app --bind \"[::]:$PORT\"&& prisma init && prisma generate"
+    "startCommand": "hypercorn main:app --bind \"[::]:$PORT\""
     
     
   }
