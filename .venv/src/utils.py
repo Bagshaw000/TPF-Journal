@@ -1,15 +1,24 @@
-from rsa_crypto_manager import RSACryptoManager
 import os
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+load_dotenv()
 
-crypto =  RSACryptoManager()
 
-private_key:str = os.environ.get("RSA_PRIVATE_KEY")
-public_key:str = os.environ.get("RSA_PUBLIC_KEY")
+key = str(os.environ.get("FERNET_KEY"))
+key_byte = key.encode("utf-8")
+crypto = Fernet(key= key_byte)
 
-def encrypt(data:str|int):
-    encrypted_data = crypto.encrypt(data, public_key)
-    return encrypted_data
+
+
+def encrypt(data):
+    
+    
+    encrypted_data = crypto.encrypt(data.encode("utf-8"))
+
+    return encrypted_data.decode("utf-8")
 
 def decrypt(data):
-    encrypted_data = crypto.decrypt(data, public_key)
-    return encrypted_data
+    decrypted_data = crypto.decrypt(data.encode("utf-8"))
+
+    return decrypted_data.decode("utf-8")
+

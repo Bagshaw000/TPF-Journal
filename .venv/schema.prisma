@@ -21,22 +21,20 @@ model accounts {
   account_no   BigInt?
   server_name  String?
   platform     platform
-  user         user         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model user {
-  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
   first_name  String
   last_name   String
-  email       String
-  plan        plan       @default(free)
-  id          BigInt     @id @unique @default(autoincrement())
+  email       String    @unique
+  plan        plan      @default(free)
   country     String?
-  last_update DateTime?  @db.Timestamptz(6)
+  last_update DateTime? @db.Timestamptz(6)
   password    String
-  accounts    accounts[]
+  id          String    @id @unique @db.Uuid
 }
 
 enum account_type {
@@ -50,9 +48,8 @@ enum plan {
   premium
 }
 
-enum platform { 
+enum platform {
   mt5
   ctrader
   mt4
-
 }

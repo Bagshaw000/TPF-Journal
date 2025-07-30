@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+type id = str
 class User(BaseModel):
     first_name:str
     last_name:str
@@ -16,7 +16,12 @@ class Session(BaseModel):
     expires_at: int
     token_type:str
     
-class DataType(BaseModel):
+class ReturnType(BaseModel):
     status: int
     msg: str | None
     data: object | str | None
+
+class AuthId(BaseModel):
+    id: str 
+
+
