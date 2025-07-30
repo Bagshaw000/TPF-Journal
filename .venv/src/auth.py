@@ -1,7 +1,5 @@
 from src.model import User, Session, ReturnType
 from supabase import create_client, Client
-import os
-# from src.db import main
 from .db import supabase_conn,main
 from src.utils import encrypt,decrypt
 from datetime import datetime

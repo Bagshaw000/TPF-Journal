@@ -1,15 +1,9 @@
-from typing import Union
-import asyncio
 from fastapi import FastAPI
-from src.db import main
 from dotenv import load_dotenv
-from prisma.models import  user
-from src.metatrader import MetaTrader
-import MetaTrader5 as mt5
 from src.model import User
 from src.auth import Auth
 import os
-from supabase import create_client, Client
+
 
 load_dotenv()
 
