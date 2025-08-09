@@ -31,8 +31,7 @@ async def read_root():
     # print("Test")
     # await dbConn()
     
-    public_key = os.environ.get("RSA_PUBLIC_KEY")
-    print(public_key)
+    
     return {"Hello": "World"} 
 
 @app.post('/signup')
