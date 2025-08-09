@@ -25,3 +25,9 @@ class AuthId(BaseModel):
     id: str 
 
 
+class Acc_Model(BaseModel):
+    login:int
+    password:str
+    server: str
+    timeout:str | None = None
+    platform: str

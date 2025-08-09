@@ -13,25 +13,18 @@ class Mt5_Action:
     async def setup_Account(self,data:Mt5_Model):
         try:
             authorized = mt5.login(data.login,password=data.password,server=data.server)
-            
-                
+             
             if authorized:
                 
                 to_date = datetime.now()
-                # print(to)
+
+                # Improve thei from being hardcoded to be dynamic
                 from_date = datetime(2015,1,1)
             
                 
                 user_trading_data = await self.get_deal_history(from_date, to_date)
                 
-               
-        
-                
-                
-                
-            # mt5.shutdown()
-       
-            return user_trading_data.items()   
+            return user_trading_data.items()  
         except Exception as e:
             return e
     
@@ -76,13 +69,12 @@ class Mt5_Action:
                 
                 # Check if the deal is a funding or withdrawal action if so skip it
                 if int(deal.order) == 0 or int(deal.position_id) == 0:
-                    # if int(deal.position_id) == 0:
-                    #     funding_withdraw[deal.ticket] = deal._asdict() 
+                   
                     continue
                 # Check if the order ticket that created the deal is in the order data if not skip
                 if deal.order not in order_data:
                     continue
-                    # print(deal.position_id)
+                   
                     
                 '''
                     Check the deal entry type
@@ -92,6 +84,8 @@ class Mt5_Action:
                     Once the association is created then store the order and deal info based on the position id and 
                     entry type entry or exit
                 '''
+                
+                
                 match deal.entry:
                     case 0:  # Entry
                         deal_posid_dict[deal.position_id]["order"]["entry"] = order_data[deal.order]
@@ -104,6 +98,20 @@ class Mt5_Action:
             # print(funding_withdraw)
                      
             return deal_posid_dict
+        except Exception as e:
+            return e
+        
+    '''
+    This function is to get the metatrader account details
+    '''   
+    async def get_account_details(self,data:Mt5_Model):
+        
+        try:
+            authorized = mt5.login(data.login,password=data.password,server=data.server)
+                
+            if authorized:
+                acc_info = mt5.account_info()._asdict()
+                return acc_info
         except Exception as e:
             return e
     

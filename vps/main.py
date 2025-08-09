@@ -31,11 +31,17 @@ async def read_root():
     # await dbConn()
     return {"Hello": "World"} 
 
-@app.get('/setup')
+@app.post('/setup')
 async def get_user(req:Mt5_Model):    
     #     return {" status":"error"}
     print(req)
-    return await mt5_obj.setup_Account(req)
+    req_data:Mt5_Model = req
+    acc_data = await mt5_obj.setup_Account(req_data)
     
-    
+    return acc_data
+
+@app.post("/account_info")
+async def get_acc_info(req:Mt5_Model):
+    acc_detail = await mt5_obj.get_account_details(req)
+    return acc_detail
     

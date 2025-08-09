@@ -5,6 +5,7 @@ class Mt5_Model(BaseModel):
     password:str
     server: str
     timeout:str | None = None
+    platform: str|None
     
 
 class Account_Info(BaseModel):

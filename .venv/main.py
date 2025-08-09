@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Response, status
 from dotenv import load_dotenv
-from src.model import User
+from src.model import User, Acc_Model
 from src.auth import Auth
+from src.metatrader import MT5_Class
 import os
+from fastapi.encoders import jsonable_encoder
 
 from datetime import datetime
 
@@ -14,26 +16,12 @@ app = FastAPI()
 # key: str = os.environ.get("SUPABASE_KEY")
 # supabase_client: Client = create_client(url, key)
 auth_class = Auth()
-
+mt5_class = MT5_Class()
 
 @app.on_event("startup")
 async def on_startup():
     pass
-    # db = await main()
-    # db_conn = await db.connect()
-    
-    # if db_conn:
-    #     print("Successfull connection")
-    # else:
-    #     print("Connection not successful")
-        
-    # await db.disconnect()
-    
-    # if not mt5.initialize():
-    #     print("Initiliazed failed, error code",mt5.last_error())
-        
-    # else:
-    #     print(mt5.terminal_info())
+
         
     
 
@@ -61,34 +49,19 @@ async def create_user(req:User, res:Response):
 
 
     
-    # print(req)
+@app.get('/setup/{user_id}')
+async def setup_trading_account(user_id:str,req:Acc_Model, res:Response):
+   
+    data = await mt5_class.account_setup(user_id=user_id,acc=req)
     
-    # response = supabase.auth.sign_up(
-    # {
-    #     "email": req.email,
-    #     "password": req.password,
-    # })
-    # db = await main()
-    # await db.connect()
-    # usr = await user.prisma().create(
-    #     data={
-    #         'first_name': req.first_name,
-    #         'email': req.email,
-    #         'last_name': req.last_name,
-    #         'plan': 'free',
-    #         'password': req.password
-    #     },
-    # )
-    # if response & usr:
-    #     return response
-    # else:
+    if data:
+        print(data)
+        res.status_code = status.HTTP_201_CREATED
+        return data
     
+    res.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return data
 
     
-    
-    #     return {" status":"error"}
-    
-    # mt5.login(52443177,password="ZQ$$KV$Pp9lMYz",server="ICMarketsSC-Demo")
-    # mt5.shutdown()
-    
-    
+
+
