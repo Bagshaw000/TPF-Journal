@@ -1,5 +1,3 @@
-import os
-
 import asyncio
 import os
 from supabase import create_client, Client

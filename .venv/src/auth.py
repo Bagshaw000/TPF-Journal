@@ -1,4 +1,4 @@
-from src.model import User, Session, ReturnType
+from src.models import User, Session, ReturnType
 from supabase import create_client, Client
 from .db import supabase_conn
 from src.utils import encrypt,decrypt
@@ -20,7 +20,7 @@ class Auth:
     '''
     The class handles user signup and authentication
     '''    
-    async def create_user(self,data:User)->ReturnType:
+    async def create_user(self,data:User):
         try:
             # Authenticate the user
             
@@ -54,18 +54,8 @@ class Auth:
             
             
                 #Checking if the data was returned successfully or not
-                if usr:
-                
-                    return {
-                        "data":usr,
-                        "msg": "Successfully added user data",
-                        "status": 200
-                    }
               
-                return {
-                    "msg":"Failed to add user",
-                    "status": 500
-                }
+                return usr
 
         except Exception as e:
             
@@ -74,30 +64,48 @@ class Auth:
     '''
         This class gets the user by id
     '''
-    async def get_user_by_id(self,id:str)->ReturnType:
+    async def get_user_by_id(self,id:str):
         try:
           
             #Check for user base on the id
-            user_obj = self.supabase.table('user').select("id").eq(id).execute()
+            user_obj = self.supabase.table('user').select("*").eq('id',id).execute()
             
             #Disconnect database
            
             #Check if the any data was returned or not
-            if user_obj:
-                return {
-                    "status":500,
-                    "msg": "User already exist",
-                    "data": user_obj
-                }
-            
-            return {
-                "status":200,
-                "msg": "No user",
-            }
+        
+            return user_obj
             
             
         except Exception as e:
             return e
+    
+     
+    '''
+        This class gets the user by email
+    '''   
+    async def get_user_by_email(self, email:str):
+        try:
+            user_obj = self.supabase.table('user').select("*").eq('email',email).execute()
             
-         
+            return user_obj
+        except Exception as e:
+            return e
+     
+            
+    '''
+        This class edits the user details
+    '''
+    async def edit_user_details(self,id:str, data):
+        try:
+            user = self.supabase.table('user').update(data).eq('id',id).execute()
+
+            return user
+        except Exception as e:
+            return e  
+    
+    '''
+    The password reset will happen on the frontend
+    '''
+    
         

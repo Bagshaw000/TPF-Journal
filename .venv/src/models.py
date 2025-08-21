@@ -24,6 +24,8 @@ class ReturnType(BaseModel):
 class AuthId(BaseModel):
     id: str 
 
+class AccId(BaseModel):
+    acc_id:int
 
 class Acc_Model(BaseModel):
     login:int
@@ -31,3 +33,4 @@ class Acc_Model(BaseModel):
     server: str
     timeout:str | None = None
     platform: str
+    

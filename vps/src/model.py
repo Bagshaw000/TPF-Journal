@@ -6,7 +6,12 @@ class Mt5_Model(BaseModel):
     server: str
     timeout:str | None = None
     platform: str|None
+
+class DealReq(Mt5_Model):
+    from_:datetime
     
+class PosId(BaseModel):
+    pos_id: int
 
 class Account_Info(BaseModel):
     
@@ -66,3 +71,8 @@ class MT5Order(BaseModel):
     symbol: str                                           # Traded symbol
     comment: str                                          # Order comment
     external_id: str                                      # Broker-defined order ID 
+
+
+
+class AccId(BaseModel):
+    acc_id:int
