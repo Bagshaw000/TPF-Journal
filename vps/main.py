@@ -4,6 +4,7 @@ from fastapi import FastAPI, WebSocketDisconnect
 import os
 import MetaTrader5 as mt5
 from src.model import Mt5_Model,DealReq,PosId, AccId
+from fastapi.encoders import jsonable_encoder
 from src.mt5 import Mt5_Action
 from src.account import Accounts
 import json
@@ -18,6 +19,7 @@ mt5_obj = Mt5_Action()
 acc_obj = Accounts()
 queue = asyncio.Queue()
 mt5_acc_queue = asyncio.Queue()
+funding_info = asyncio.Queue()
 
 
 async def producer():
@@ -29,8 +31,12 @@ async def producer():
             
             
                 login_det = Mt5_Model(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5')
-        
+                fund_det =  DealReq(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5',from_=datetime(2015,1,1))
+                fund_detail = await acc_obj.get_funding_details(fund_det)
+                
+                await funding_info.put(fund_detail)
                 await queue.put(login_det)
+                
                 
        
         await asyncio.sleep(10)
@@ -92,6 +98,33 @@ async def mt5_consumer():
             print(f"Error processing account {acc['id']}: {e}")
         finally:
             mt5_acc_queue.task_done()
+            
+            
+async def funding_consumer():
+    url:str= os.environ.get("FUNDING_WEBSOCKET")
+    
+    # make the connection persistent
+    
+
+        
+        #Broad cast the information to the websocket
+    try:
+        async with websockets.connect(url) as socket_conn:
+                    # Get the queue with login credential 
+            while True:
+                fund_info = await funding_info.get()
+                
+                #For each mt5 account get the open positions
+                # user_position = await mt5_obj.get_open_position(user)
+                # print(user_position)
+                await socket_conn.send(json.dumps(jsonable_encoder(fund_info)))
+                 
+                funding_info.task_done()
+    except WebSocketDisconnect:
+        print("Websocket disconnected")
+        await asyncio.sleep(24 * 60 * 60)
+        funding_consumer()
+    
 
 @app.on_event("startup")
 async def on_startup():  
@@ -102,6 +135,9 @@ async def on_startup():
     #Assign three three consumers to handle the task in the queue
     for _ in range(3):
         asyncio.create_task(consumer())
+        
+    for _ in range(3):
+        asyncio.create_task(funding_consumer())
         
         
     for _ in range(3):
@@ -123,7 +159,7 @@ async def read_root():
     return {"Hello": "World"} 
 
 @app.post('/setup')
-async def get_user(req:Mt5_Model):    
+async def get_user(req:DealReq):    
     #     return {" status":"error"}
     print(req)
     req_data:Mt5_Model = req

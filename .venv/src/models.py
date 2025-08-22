@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 type id = str
 class User(BaseModel):
     first_name:str
@@ -34,3 +35,5 @@ class Acc_Model(BaseModel):
     timeout:str | None = None
     platform: str
     
+class DealReq(Acc_Model):
+    from_:datetime

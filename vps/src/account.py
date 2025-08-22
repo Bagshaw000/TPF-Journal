@@ -1,10 +1,12 @@
+from collections import defaultdict
 from .db import supabase_conn
 import requests 
 import os
 import json as js
 import datetime
 from .mt5 import Mt5_Action 
-from .model import Mt5_Model
+from .model import Mt5_Model, DealReq,MT5Deal
+import MetaTrader5 as mt5
 class Accounts:
     
     def __init__(self):
@@ -124,3 +126,51 @@ class Accounts:
         except Exception as e:
             return e
         
+    async def get_account_det(self, acc_no:int, password:str, server:str):
+        try:
+            acc_det = self.supabase.table("accounts").select("*").eq("account_no", acc_no).eq("password", password).eq("server_name",server).eq("platform","mt5").execute()
+            return acc_det.data
+        except Exception as e:
+            return e
+        
+        
+    '''
+    This function get all the user funding data
+    '''
+    async def get_funding_details(self,data:DealReq):
+        
+        try:
+            # Get the current date to be used to get the recent funding information
+            to_date = datetime.datetime.now()
+            
+            
+            # Login the user into mt5
+            authorized = mt5.login(data.login,password=data.password,server=data.server)
+            
+            # This dictionary will hold all the funding information
+            funding_dict = defaultdict(lambda:defaultdict(
+                lambda:{}
+            ))
+            
+            #Confirm the the user login is correct
+            if authorized:
+                acc_det = await self.get_account_det(data.login,data.password,data.server)
+            
+                
+                # Get all the user deals
+                funding_det:list[MT5Deal] = mt5.history_deals_get(data.from_, to_date)
+                          
+                # Loops through all the deal
+                for det in funding_det:
+                    
+                    
+                    # Finds the funding details byt deal type and updated the funding detail dictionary
+                    if int(det.type) == 2:
+                   
+                        funding_dict[acc_det[0]["id"]][det.ticket] = det._asdict()
+                print(funding_dict)
+             
+            return funding_dict
+            
+        except Exception as e:
+            return e 

@@ -1,7 +1,7 @@
 import asyncio
 from fastapi import FastAPI, Response, status,WebSocket,WebSocketDisconnect
 from dotenv import load_dotenv
-from src.models import User, Acc_Model, AccId
+from src.models import User, Acc_Model, AccId,DealReq
 from src.auth import Auth
 from src.accounts import MT5_Class
 from src.position import Position
@@ -21,6 +21,7 @@ trade_hist = Trader_History()
 position = Position()
 live_mt5_queue = asyncio.Queue()
 mt5_last_queue = asyncio.Queue()
+
 
 
 
@@ -63,7 +64,7 @@ async def create_user(req:User, res:Response):
 This endpoint setup the user trading account by importing the trade history
 ''' 
 @app.get('/setup/{user_id}')
-async def setup_trading_account(user_id:str,req:Acc_Model, res:Response):
+async def setup_trading_account(user_id:str,req:DealReq, res:Response):
    
     data = await mt5_class.account_setup(user_id=user_id,acc=req)
     
@@ -88,6 +89,27 @@ async def mt5_live_trade(websocket:WebSocket):
 
                 
             # await position.store_mt5_open_pos(data)
+          
+    except WebSocketDisconnect:
+        print('errorr')
+        
+'''
+Websocket to receive trade update from the mt5 server
+'''
+@app.websocket("/funding")
+async def mt5_live_trade(websocket:WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+           
+          
+            # mt5_class.store_funding_details()
+            # await live_mt5_queue.put(data)
+            for info in data:
+                # print(info)
+                
+                print(await mt5_class.store_funding_details(data[info],int(info)))
           
     except WebSocketDisconnect:
         print('errorr')

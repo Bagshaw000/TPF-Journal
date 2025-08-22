@@ -2,15 +2,21 @@ from .model import Mt5_Model, Account_Info, MT5Deal, MT5Order,DealReq
 import MetaTrader5 as mt5
 from datetime import datetime
 from collections import defaultdict
+
 from typing import Dict
 import json
 
 class Mt5_Action:
     
+    
+    # def __init__(self):
+    #     self.acc_obj = Accounts()
+        
+    
     '''
     This function setup the user trading account
     '''
-    async def setup_Account(self,data:Mt5_Model):
+    async def setup_Account(self,data:DealReq):
         try:
             authorized = mt5.login(data.login,password=data.password,server=data.server)
              
@@ -123,41 +129,11 @@ class Mt5_Action:
         except Exception as e:
             return e
     
-    
-    '''
-    This function get all the user funding data
-    '''
-    async def get_funding_details(self,data:DealReq):
+
         
-        try:
-            # Get the current date to be used to get the recent funding information
-            to_date = datetime.now()
-            
-            # Login the user into mt5
-            authorized = mt5.login(data.login,password=data.password,server=data.server)
-            
-            # This dictionary will hold all the funding information
-            funding_dict = defaultdict(lambda:dict)
-            
-            #Confirm the the user login is correct
-            if authorized:
-                
-                # Get all the user deals
-                funding_det:list[MT5Deal] = mt5.history_deals_get(data.from_, to_date)
-                
-                # Loops through all the deal
-                for det in funding_det:
-                    
-                    # Finds the funding details byt deal type and updated the funding detail dictionary
-                    if int(det.type) == 2:
-                   
-                        funding_dict[det.ticket] = det._asdict()
-                           
-                    
-            return funding_dict
-            
-        except Exception as e:
-            return e  
+    # async def store_funding_details()
+    
+     
     
     '''
     Get all open position for a particular account

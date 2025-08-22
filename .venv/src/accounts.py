@@ -1,4 +1,4 @@
-from .models import Acc_Model
+from .models import Acc_Model,DealReq
 import requests 
 from dotenv import load_dotenv
 load_dotenv()
@@ -15,7 +15,7 @@ class MT5_Class:
         
         self.supabase = supabase_conn()
       
-    async def account_setup(self,user_id:str,acc:Acc_Model):
+    async def account_setup(self,user_id:str,acc:DealReq):
         try:
             
             # Store the user credential in the database 
@@ -25,6 +25,7 @@ class MT5_Class:
                 
                 case "mt5":
                     trade_list=[]
+                
                     url = os.environ.get("MT5_SERVER_HOST")+"/setup"
                     headers = {
                         "Content-Type": "application/json"  
@@ -35,6 +36,11 @@ class MT5_Class:
                     # Convert the data to json format
                     user_data_json = user_data.json()
                     
+                    fund_url = os.environ.get("MT5_SERVER_HOST")+"/funding_details"
+                    
+                    fund_data = requests.post(url=fund_url, data=js.dumps(jsonable_encoder(acc)),timeout=10, headers=headers)
+                    
+                    fund_data_json = fund_data.json()
                     #Filter the completed deal, Store in the database
                     acc_info = await self.get_account_detail(acc)
                 
@@ -57,7 +63,7 @@ class MT5_Class:
                     # Check if that account has information stored in the trade history table to see if the account has been setup before
                     
                     # Check if the storing data and the getting the account history were successfull
-                    if user_acc and user_data_json:
+                    if user_acc and user_data_json and fund_data_json:
                         
                         # Insert the user data in the database
                         # Loop through the account data to map into a datatype to be able to insert bulk data
@@ -97,17 +103,93 @@ class MT5_Class:
                                 # Append the trade_data to a list for the bulk create
                                 trade_list.append(trade_data)
                         
+                        
+                        store_fund_detials = await self.store_funding_details(fund_data_json, user_acc.data[0]["id"])
+                        
+                        if store_fund_detials == False:
+                            return "Error storing fund details"
+                        
+                        
                         # Insert the trade history into the database
+                    else:
+                        return "Issue with MT5 credential"   
+                    if trade_list :
                         trade_hist = self.supabase.table("trade_history").insert(trade_list).execute()  
                         
-                        # Check if the data was inserted succesfully
-                        
+                        if not trade_hist :
                             
-                        return trade_hist           
+                        
+                            return False
                     
+                    # Check if the data was inserted succesfully
+                    
+                        
+                    return trade_hist           
+                
         except Exception as e:
             return e
         
+    async def store_funding_details(self, fund_data_json:dict , acc_id:int ):
+        
+        try:
+            # Loop through and check if the funding details have been stored in the database
+            fund_list =[]
+            print(fund_data_json)
+            for data in fund_data_json:
+                
+                print(data)
+                fund_info = await self.check_funding_info(acc_id,int(data))
+                print(fund_info)
+                
+                if fund_info:
+                    continue
+                    
+                
+                fund_det = fund_data_json[data]
+                fund_type = None
+                
+                if fund_det["profit"] < 0 :
+                    fund_type = "withdrawal"
+                else:
+                    fund_type= "deposit"
+                fund_data = {
+                        "position_id": int(fund_det["ticket"]),
+                        "entry_price": float(fund_det["price"]),
+                        "exit_price": None,
+                        "volume": float(fund_det["volume"]),
+                        "commission":float(fund_det["commission"]),
+                        "fee": float(fund_det["fee"]),
+                        "profit_loss": float(fund_det["profit"]),
+                        "symbol": str(fund_det["symbol"]),
+                        "entry_time": datetime.datetime.fromtimestamp(int(fund_det["time_msc"])/1000).strftime('%Y-%m-%d %H:%M:%S.%f'),
+                        "exit_time": None,
+                        "sl_price": float(0),
+                        "tp_price": float(0),
+                        "swap": float(fund_det["swap"]),
+                        "account_id":acc_id,
+                        "trade_type": fund_type,
+                    }
+                
+                fund_list.append(fund_data)
+                
+            if not fund_list:
+                 return False
+             
+            fund_hist = self.supabase.table("trade_history").insert(fund_list).execute() 
+            
+            return fund_hist
+        
+        except Exception as e:
+            return e
+        
+            
+            
+    async def check_funding_info(self,acc_id:int, pos_id:int):
+        try:
+            funding_info = self.supabase.table("trade_history").select("*").eq("position_id",pos_id).eq("account_id",acc_id).execute()
+            return funding_info.data
+        except Exception as e:
+            return e
         
     '''
     Get MT5 account details
