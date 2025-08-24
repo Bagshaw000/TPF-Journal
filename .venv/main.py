@@ -5,6 +5,7 @@ from src.models import User, Acc_Model, AccId,DealReq
 from src.auth import Auth
 from src.accounts import MT5_Class
 from src.position import Position
+from src.performance import Performance
 from src.trade_history import Trader_History
 import os
 from fastapi.encoders import jsonable_encoder
@@ -21,6 +22,7 @@ trade_hist = Trader_History()
 position = Position()
 live_mt5_queue = asyncio.Queue()
 mt5_last_queue = asyncio.Queue()
+metric = Performance()
 
 
 
@@ -124,3 +126,17 @@ async def live_mt5_consumer():
         live_mt5_queue.task_done()
 
 
+
+@app.get('/performance')
+async def setup_trading_account():
+   
+    data = await metric.avg_win_trade_duration(18)
+    print(data)
+    
+    # if data:
+    #     print(data)
+    #     res.status_code = status.HTTP_201_CREATED
+    #     return data
+    
+    # res.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    # return data
