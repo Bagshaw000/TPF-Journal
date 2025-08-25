@@ -57,7 +57,7 @@ services:
       - --api
     networks:
       - traefik-public # Public network for Traefik and other services
-mt5:
+  mt5:
     build:
       dockerfile: Dockerfile
     container_name: mt5

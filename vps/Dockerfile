@@ -1,10 +1,12 @@
-# Stage 1: Base image with apt packages
-FROM ghcr.io/linuxserver/baseimage-kasmvnc:debianbullseye-8446af38-ls104 AS base
+ #Stage 1: Base image with apt packages
+FROM ghcr.io/linuxserver/baseimage-kasmvnc:ubuntunoble-version-8076605d AS base
 
 ENV TITLE=MetaTrader
 ENV WINEARCH=win64
 ENV WINEPREFIX="/config/.wine"
 ENV DISPLAY=:0
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Ensure the directory exists with correct permissions
 RUN mkdir -p /config/.wine && \
@@ -17,16 +19,21 @@ RUN apt-get update && apt-get upgrade -y
 # Install required packages
 RUN apt-get install -y \
     dos2unix \
+    python3 \
     python3-pip \
+    python3-venv \
     wget \
-    python3-pyxdg \
-    netcat \
-    && pip3 install --upgrade pip
+    python3-xdg \
+    netcat-traditional
+
+# Create Python virtual environment and upgrade pip inside it
+RUN python3 -m venv $VIRTUAL_ENV && \
+    $VIRTUAL_ENV/bin/pip install --upgrade pip
 
 # Add WineHQ repository key and APT source
 RUN wget -q https://dl.winehq.org/wine-builds/winehq.key > /dev/null 2>&1\
     && apt-key add winehq.key \
-    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/debian/ bullseye main' \
+    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ jammy main' \
     && rm winehq.key
 
 # Add i386 architecture and update package lists

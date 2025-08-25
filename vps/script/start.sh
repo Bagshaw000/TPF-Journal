@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Source common variables and functions
-source /scripts/common.sh
+source /script/common.sh
 
 # Run installation scripts
-/scripts/install-mono.sh
-/scripts/install-mt5.sh
+/script/install-mono.sh
+/script/install-mt5.sh
 
 # Keep the script running
 tail -f /dev/null

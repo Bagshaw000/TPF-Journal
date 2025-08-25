@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /scripts/02-common.sh
+source /scripts/common.sh
 
 log_message "RUNNING" "install-mt5.sh"
 
