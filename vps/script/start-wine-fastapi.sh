@@ -6,7 +6,7 @@ log_message "INFO" "Starting FastAPI server in Wine environment..."
 
 # Run the FastAPI app using Uvicorn inside Wine
 # Replace 'app:app' with the path to your FastAPI app object
-wine python -m uvicorn app:app --host 0.0.0.0 --port 8000 &
+wine python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 
 FASTAPI_PID=$!
 
