@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /scripts/common.sh
+source /script/common.sh
 
 log_message "RUNNING" "install-libraries.sh"
 

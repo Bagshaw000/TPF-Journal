@@ -1,5 +1,5 @@
 #!/bin/bash
-source /scripts/common.sh
+source /script/common.sh
 
 log_message "RUNNING" "start-wine-fastapi.sh"
 log_message "INFO" "Starting FastAPI server in Wine environment..."
