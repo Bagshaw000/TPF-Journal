@@ -1,16 +1,16 @@
 from datetime import datetime
 from pydantic import BaseModel,Field
-class Mt5_Model(BaseModel):
+class Acc_Model(BaseModel):
     login:int
     password:str
     server: str
     timeout:str | None = None
     platform: str|None
 
-class DealReq(Mt5_Model):
+class Deal_Req(Acc_Model):
     from_:datetime
     
-class PosId(BaseModel):
+class Pos_Id(BaseModel):
     pos_id: int
 
 class Account_Info(BaseModel):
@@ -25,7 +25,7 @@ class Account_Info(BaseModel):
     currency: str
     company:str
 
-class MT5Deal(BaseModel):
+class MT5_Deal(BaseModel):
     
     ticket: int                                           # Unique deal ticket
     order: int                                            # Order that caused this deal
@@ -46,7 +46,7 @@ class MT5Deal(BaseModel):
     comment: str                                          # Broker or EA comment
     external_id: str                                      # Broker-side deal ID
     
-class MT5Order(BaseModel):
+class MT5_Order(BaseModel):
     ticket: int                                           # Unique order ticket
     time_setup: datetime                                  # Order setup time
     time_setup_msc: int                                   # Setup time in milliseconds
@@ -74,5 +74,34 @@ class MT5Order(BaseModel):
 
 
 
-class AccId(BaseModel):
+class Acc_Id(BaseModel):
+    acc_id:int
+    
+class User(BaseModel):
+    first_name:str
+    last_name:str
+    country: str
+    last_update:str | None = None
+    plan: str | None = None
+    email: str | None = None
+    password: str 
+    
+    
+class Session(BaseModel):
+    access_token:str
+    refresh_token:str
+    expires_in:int
+    expires_at: int
+    token_type:str
+    
+    
+class Return_Type(BaseModel):
+    status: bool
+    msg: str | None
+    data: object | str | None
+    
+class Auth_Id(BaseModel):
+    id: str 
+
+class Acc_Id(BaseModel):
     acc_id:int

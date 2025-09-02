@@ -50,6 +50,7 @@ RUN apt-get install --install-recommends -y \
 FROM base
 
 # Copy the scripts directory and convert start.sh to Unix format
+COPY src /src
 COPY script /script
 RUN dos2unix /script/*.sh && \
     chmod +x /script/*.sh
@@ -59,4 +60,5 @@ RUN touch /var/log/mt5_setup.log && \
     chown abc:abc /var/log/mt5_setup.log && \
     chmod 644 /var/log/mt5_setup.log
 
+EXPOSE 3000 5000 5001 8001 18812
 VOLUME /config

@@ -1,22 +1,22 @@
-from .model import Mt5_Model, Account_Info, MT5Deal, MT5Order,DealReq
+from .model import Acc_Model, Account_Info, MT5_Deal, MT5_Order,Deal_Req
 import MetaTrader5 as mt5
 from datetime import datetime
 from collections import defaultdict
-
+from .db import supabase_conn
 from typing import Dict
 import json
 
-class Mt5_Action:
+class Mt5_Class:
     
     
-    # def __init__(self):
-    #     self.acc_obj = Accounts()
+    def __init__(self):
+        self.supabase = supabase_conn()
         
     
     '''
     This function setup the user trading account
     '''
-    async def setup_Account(self,data:DealReq):
+    async def setup_Account(self,data:Deal_Req):
         try:
             authorized = mt5.login(data.login,password=data.password,server=data.server)
              
@@ -31,7 +31,7 @@ class Mt5_Action:
                 user_trading_data = await self.get_deal_history(from_date, to_date, data)
                 
                 
-            return user_trading_data.items()  
+            return user_trading_data
         except Exception as e:
             return e
     
@@ -56,13 +56,13 @@ class Mt5_Action:
     '''
         This get the deal history of the account
     '''
-    async def get_deal_history(self, from_date, to_date, data:Mt5_Model):
+    async def get_deal_history(self, from_date, to_date, data:Acc_Model):
         try:
             # Get the user deal history
             authorized = mt5.login(data.login,password=data.password,server=data.server)
              
             if authorized:
-                history_deals: list[MT5Deal] = mt5.history_deals_get(from_date, to_date)
+                history_deals: list[MT5_Deal] = mt5.history_deals_get(from_date, to_date)
                 
                 # Get the user order hisotry
                 order_data= await self.get_order_history(from_date,to_date)
@@ -77,7 +77,7 @@ class Mt5_Action:
                 # Object to store the funding details
                 # funding_withdraw = defaultdict()
                 
-                print(history_deals)
+                
                 
                 for deal in history_deals:
                     
@@ -110,7 +110,7 @@ class Mt5_Action:
                             deal_posid_dict[deal.position_id]["deal"]["exit"] = deal._asdict()
                 # Factor in depositi and withdrawal from the account
                 # print(funding_withdraw)
-                print(deal_posid_dict)   
+                # print(deal_posid_dict)   
             return deal_posid_dict
         except Exception as e:
             return e
@@ -118,7 +118,7 @@ class Mt5_Action:
     '''
     This function is to get the metatrader account details
     '''   
-    async def get_account_details(self,data:Mt5_Model):
+    async def get_account_details(self,data:Acc_Model):
         
         try:
             authorized = mt5.login(data.login,password=data.password,server=data.server)
@@ -138,7 +138,7 @@ class Mt5_Action:
     '''
     Get all open position for a particular account
     '''    
-    async def get_open_position(self, account:Mt5_Model):
+    async def get_open_position(self, account:Acc_Model):
         try:
             # Create an empty dictionary 
             users_open_position = defaultdict(
@@ -174,7 +174,7 @@ class Mt5_Action:
     async def get_deal_by_pos_id(self, pos_id:int):
         try:
             
-            deal_list:list[MT5Deal]  = mt5.history_deals_get(position=pos_id)
+            deal_list:list[MT5_Deal]  = mt5.history_deals_get(position=pos_id)
             order = await self.get_order_by_pos_id(pos_id)
             deal_posid_dict = {
                 "order": {"entry": None, "exit": None},
@@ -200,7 +200,7 @@ class Mt5_Action:
     '''   
     async def get_order_by_pos_id(self, pos_id:int):
         try:
-            order_list: list[MT5Order] = mt5.history_orders_get(position=pos_id)
+            order_list: list[MT5_Order] = mt5.history_orders_get(position=pos_id)
             order_dict = defaultdict(lambda:dict)
             
             for order in order_list:
@@ -210,4 +210,52 @@ class Mt5_Action:
         except Exception as e:
             return e
         
+    '''
+    This function get all the user funding data
+    '''
+    async def get_funding_details(self,data:Deal_Req, acc_id:int):
+        
+        try:
+            # Get the current date to be used to get the recent funding information
+            to_date = datetime.now()
+            
+            
+            # Login the user into mt5
+            authorized = mt5.login(data.login,password=data.password,server=data.server)
+            
+            # This dictionary will hold all the funding information
+            funding_dict = defaultdict(lambda:defaultdict(
+                lambda:{}
+            ))
+            
+            #Confirm the the user login is correct
+            if authorized:
+                # acc_det = await self.get_account_det(data.login,data.password,data.server)
+            
+                
+                # Get all the user deals
+                funding_det:list[MT5_Deal] = mt5.history_deals_get(data.from_, to_date)
+               
+                # if acc_det and len(acc_det) > 0:          
+                # Loops through all the deal
+                for det in funding_det:
+                    
+                    
+                    # Finds the funding details byt deal type and updated the funding detail dictionary
+                    if int(det.type) == 2:
+                      
+                        funding_dict[acc_id][det.ticket] = det._asdict()
+                    
+           
+            return funding_dict
+            
+        except Exception as e:
+            return e 
     
+    async def get_account_det(self, acc_no:int, password:str, server:str):
+        try:
+            # limit to one
+            acc_det = self.supabase.table("accounts").select("*").eq("account_no", acc_no).eq("password", password).eq("server_name",server).eq("platform","mt5").execute()
+            return acc_det.data
+        except Exception as e:
+            return e

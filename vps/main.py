@@ -1,12 +1,14 @@
 from typing import Union
 import asyncio
-from fastapi import FastAPI, WebSocketDisconnect
+from fastapi import FastAPI, WebSocketDisconnect, APIRouter
 import os
 import MetaTrader5 as mt5
-from src.model import Mt5_Model,DealReq,PosId, AccId
+from src.model import Acc_Model,Deal_Req,Pos_Id, Acc_Id,User,Return_Type
 from fastapi.encoders import jsonable_encoder
-from src.mt5 import Mt5_Action
+from src.mt5 import Mt5_Class
+from src.auth import Auth
 from src.account import Accounts
+from src.position import Position
 import json
 from datetime import datetime
 import websockets
@@ -15,12 +17,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
-mt5_obj = Mt5_Action()
+router = APIRouter(prefix="/api/v1")
+mt5_obj = Mt5_Class()
+auth_obj = Auth()
 acc_obj = Accounts()
+pos_obj = Position()
 queue = asyncio.Queue()
 mt5_acc_queue = asyncio.Queue()
 funding_info = asyncio.Queue()
-
 
 async def producer():
     while True:
@@ -30,44 +34,36 @@ async def producer():
             for acc in acc_list:
             
             
-                login_det = Mt5_Model(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5')
-                fund_det =  DealReq(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5',from_=datetime(2015,1,1))
-                fund_detail = await acc_obj.get_funding_details(fund_det)
+                login_det = Acc_Model(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5')
+                fund_det =  Deal_Req(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5',from_=datetime(2015,1,1))
+                fund_detail = await mt5_obj.get_funding_details(fund_det,acc["id"])
                 
-                await funding_info.put(fund_detail)
+                # await funding_info.put(fund_detail)
+                print(login_det)
                 await queue.put(login_det)
                 
                 
        
-        await asyncio.sleep(10)
+        await asyncio.sleep(1)
             
 '''
 This consumes the information stored in the queue and broadcast the 
 open position to the websocket
 '''
 async def consumer():
-    # Get the websocket url
-    url:str= os.environ.get("WEBSOCKET")
-    
-    # make the connection persistent
-    
 
-        
-        #Broad cast the information to the websocket
     try:
-        async with websockets.connect(url) as socket_conn:
-                    # Get the queue with login credential 
-            while True:
-                user = await queue.get()
-                
-                #For each mt5 account get the open positions
-                user_position = await mt5_obj.get_open_position(user)
-                print(user_position)
-                await socket_conn.send(json.dumps(user_position))
-                 
-                queue.task_done()
-    except WebSocketDisconnect:
-        print("Websocket disconnected")
+
+        while True:
+            user = await queue.get()
+
+            user_position = await mt5_obj.get_open_position(user)
+    
+            await pos_obj.store_mt5_open_pos(user_position)       
+            
+            queue.task_done()
+    except Exception as e:
+        print("Live trade Consumer is disconnected")
         await asyncio.sleep(3)
         consumer()
                  
@@ -128,20 +124,20 @@ async def funding_consumer():
 
 @app.on_event("startup")
 async def on_startup():  
-    asyncio.create_task(mt5_producer())
+    # asyncio.create_task(mt5_producer())
     # Run the producer in the background as a concurrent task
     asyncio.create_task(producer())
     
     #Assign three three consumers to handle the task in the queue
-    for _ in range(3):
+    for _ in range(100):
         asyncio.create_task(consumer())
         
-    for _ in range(3):
-        asyncio.create_task(funding_consumer())
+    # for _ in range(3):
+    #     asyncio.create_task(funding_consumer())
         
         
-    for _ in range(3):
-        asyncio.create_task(mt5_consumer())
+    # for _ in range(3):
+    #     asyncio.create_task(mt5_consumer())
    
     # Initialize the Mt5 console on startup  
     if not mt5.initialize():
@@ -158,59 +154,91 @@ async def read_root():
 
     return {"Hello": "World"} 
 
-@app.post('/setup')
-async def get_user(req:DealReq):    
+
+
+
+'''
+Authentication Routes
+'''
+
+# Authentication route
+@router.post('/auth/signup', tags=['auth'])
+async def create_user(req:User, res:Return_Type):
+    user = await auth_obj.create_user(req)
+    
+    if user:
+        res =Return_Type(status=True,msg="Success",data=None)
+        return res
+    
+    return Return_Type(status=False, msg="Failed", data=None)
+
+@router.post('/account/setup/{user_id}', tags=["account"])
+async def setup_account(user_id:str,req:Deal_Req):
+    
+    print(user_id)
+    print(req)
+    res = await acc_obj.account_setup(user_id, req)
+
+    
+    return res
+
+
+@router.post('/mt5/setup',)
+async def get_user(req:Deal_Req):    
     #     return {" status":"error"}
     print(req)
-    req_data:Mt5_Model = req
+    req_data:Acc_Model = req
     acc_data = await mt5_obj.setup_Account(req_data)
     
     return acc_data
 
-@app.post("/account_info")
-async def get_acc_info(req:Mt5_Model):
-    acc_detail = await mt5_obj.get_account_details(req)
-    return acc_detail
+# @app.post("/account_info")
+# async def get_acc_info(req:Acc_Model):
+#     acc_detail = await mt5_obj.get_account_details(req)
+#     return acc_detail
     
-@app.post("/funding_details")
-async def get_acc_funding(req:DealReq):
-    print(req.from_)
-    fund_details = await mt5_obj.get_funding_details(req)
-    return fund_details
+# @app.post("/funding_details")
+# async def get_acc_funding(req:Deal_Req):
+#     print(req.from_)
+#     fund_details = await mt5_obj.get_funding_details(req)
+#     return fund_details
 
-@app.post("/open_position")
-async def get_open_position(req:Mt5_Model):
-    open_position = await mt5_obj.get_open_position(req)
-    return open_position
+# @app.post("/open_position")
+# async def get_open_position(req:Acc_Model):
+#     open_position = await mt5_obj.get_open_position(req)
+#     return open_position
 
-@app.post("/deal")
-async def get_deal(req:DealReq):
-    to_ = datetime.now()
-    print(req)
-    deal_data = await mt5_obj.get_deal_history(req.from_,to_,req)
-    return deal_data
+# @app.post("/deal")
+# async def get_deal(req:Deal_Req):
+#     to_ = datetime.now()
+#     print(req)
+#     deal_data = await mt5_obj.get_deal_history(req.from_,to_,req)
+#     return deal_data
 
-@app.post("/deal/pos_id")
-async def get_deal_by_pos_id(req:PosId):
-    print(req)
-    deal_data = await mt5_obj.get_deal_by_pos_id(req.pos_id)
-    return deal_data
+# @app.post("/deal/pos_id")
+# async def get_deal_by_pos_id(req:Pos_Id):
+#     print(req)
+#     deal_data = await mt5_obj.get_deal_by_pos_id(req.pos_id)
+#     return deal_data
 
-@app.post("/order/pos_id")
-async def get_order_by_pos_id(req:PosId):
-    print(req.pos_id)
-    deal_data = await mt5_obj.get_order_by_pos_id(req.pos_id)
-    return deal_data
+# @app.post("/order/pos_id")
+# async def get_order_by_pos_id(req:Pos_Id):
+#     print(req.pos_id)
+#     deal_data = await mt5_obj.get_order_by_pos_id(req.pos_id)
+#     return deal_data
 
 
-@app.post('/last_trade')
-async def get_last_trade(req:AccId):
-    trade= await acc_obj.get_user_last_trade(req.acc_id)
+# @app.post('/last_trade')
+# async def get_last_trade(req:Acc_Id):
+#     trade= await acc_obj.get_user_last_trade(req.acc_id)
     
-    return trade
+#     return trade
 
 # @app.post('/all_trade')
 # async def get_last_trade():
 #     trade= await acc_obj.get_all_user_last_trade()
     
 #     return trade
+
+
+app.include_router(router)
