@@ -1,5 +1,18 @@
 from datetime import datetime
 from pydantic import BaseModel,Field
+from enum import Enum
+
+class Performance_Enum(str, Enum):
+    yesterday = "y"
+    this_week= "t-w"
+    last_week= "l-w"
+    this_month= "t-m"
+    last_month = "l-m"
+    last_three_month = "3-m"
+    last_six_month= "6-m"
+    last_twelve_month= "12-m"
+    all_history = "*"
+    
 class Acc_Model(BaseModel):
     login:int
     password:str
@@ -78,12 +91,12 @@ class Acc_Id(BaseModel):
     acc_id:int
     
 class User(BaseModel):
-    first_name:str
-    last_name:str
-    country: str
+    first_name:str |None = None
+    last_name:str |None = None
+    country: str |None = None
     last_update:str | None = None
     plan: str | None = None
-    email: str | None = None
+    email: str 
     password: str 
     
     
@@ -105,3 +118,6 @@ class Auth_Id(BaseModel):
 
 class Acc_Id(BaseModel):
     acc_id:int
+    
+class Performance_time(BaseModel):
+    timeframe: Performance_Enum

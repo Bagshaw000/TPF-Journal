@@ -66,6 +66,7 @@ class Mt5_Class:
                 
                 # Get the user order hisotry
                 order_data= await self.get_order_history(from_date,to_date)
+                # print(order_data)
             
                 
                 # Create a dummy object to hold both order and deal that are related by deal.order and order.ticket    
@@ -102,10 +103,12 @@ class Mt5_Class:
                     
                     match deal.entry:
                         case 0:  # Entry
+                            
                             deal_posid_dict[deal.position_id]["order"]["entry"] = order_data[deal.order]
                             deal_posid_dict[deal.position_id]["deal"]["entry"] = deal._asdict()
 
                         case 1:  # Exit
+                           
                             deal_posid_dict[deal.position_id]["order"]["exit"] = order_data[deal.order]
                             deal_posid_dict[deal.position_id]["deal"]["exit"] = deal._asdict()
                 # Factor in depositi and withdrawal from the account
@@ -114,7 +117,7 @@ class Mt5_Class:
             return deal_posid_dict
         except Exception as e:
             return e
-        
+          
     '''
     This function is to get the metatrader account details
     '''   
@@ -157,12 +160,16 @@ class Mt5_Class:
                 #Get all the open position 
                 open_pos = mt5.positions_get()
                 
+                if not open_pos:
+                    return None
+                
                 users_open_position[account.login]['server'] = account.server
                 #Map all position to the account in the empty dictionary
                 for pos in open_pos:
                  
                     users_open_position[account.login]['position'][pos._asdict()['ticket']] = pos._asdict()  
-                  
+                users_open_position.pop(0, None) 
+                # print(users_open_position)
             return users_open_position       
             
         except Exception as e:
@@ -171,42 +178,50 @@ class Mt5_Class:
     '''
      This get deal by position id 
     '''   
-    async def get_deal_by_pos_id(self, pos_id:int):
+    async def get_deal_by_pos_id(self, pos_id:int,account:Acc_Model):
         try:
+            authorized = mt5.login(account.login,password=account.password,server=account.server)
             
-            deal_list:list[MT5_Deal]  = mt5.history_deals_get(position=pos_id)
-            order = await self.get_order_by_pos_id(pos_id)
-            deal_posid_dict = {
-                "order": {"entry": None, "exit": None},
-                "deal": {"entry": None, "exit": None}
-            }
-            
-            for deal in deal_list:
-                match deal.entry:
-                    case 0:  # entry
-                        deal_posid_dict["deal"]["entry"] = deal._asdict()
-                        deal_posid_dict["order"]["entry"] = order.get(deal.order)
-                    case 1:  # exit
-                        deal_posid_dict["deal"]["exit"] = deal._asdict()
-                        deal_posid_dict["order"]["exit"] = order.get(deal.order)
-                    
+            #If the account is logged in
+            if authorized:
+                deal_list:list[MT5_Deal]  = mt5.history_deals_get(position=pos_id)
+                order = await self.get_order_by_pos_id(pos_id, account)
+                deal_posid_dict = {
+                    "order": {"entry": None, "exit": None},
+                    "deal": {"entry": None, "exit": None}
+                }
                 
-            return deal_posid_dict
+                for deal in deal_list:
+                    match deal.entry:
+                        case 0:  # entry
+                            deal_posid_dict["deal"]["entry"] = deal._asdict()
+                            deal_posid_dict["order"]["entry"] = order.get(deal.order)
+                        case 1:  # exit
+                            deal_posid_dict["deal"]["exit"] = deal._asdict()
+                            deal_posid_dict["order"]["exit"] = order.get(deal.order)
+                        
+                    
+                return deal_posid_dict
         except Exception as e:
             return e
 
     '''
      This get deal by position id 
     '''   
-    async def get_order_by_pos_id(self, pos_id:int):
+    async def get_order_by_pos_id(self, pos_id:int, account:Acc_Model):
         try:
-            order_list: list[MT5_Order] = mt5.history_orders_get(position=pos_id)
-            order_dict = defaultdict(lambda:dict)
+               #Login user into the mt5 account
+            authorized = mt5.login(account.login,password=account.password,server=account.server)
             
-            for order in order_list:
-                order_dict[order.ticket] = order._asdict()
+            #If the account is logged in
+            if authorized:
+                order_list: list[MT5_Order] = mt5.history_orders_get(position=pos_id)
+                order_dict = defaultdict(lambda:dict)
                 
-            return order_dict
+                for order in order_list:
+                    order_dict[order.ticket] = order._asdict()
+                    
+                return order_dict
         except Exception as e:
             return e
         
@@ -236,7 +251,7 @@ class Mt5_Class:
                 # Get all the user deals
                 funding_det:list[MT5_Deal] = mt5.history_deals_get(data.from_, to_date)
                
-                # if acc_det and len(acc_det) > 0:          
+                        
                 # Loops through all the deal
                 for det in funding_det:
                     
