@@ -1,7 +1,16 @@
 // app/dashboard/page.tsx
 "use client";
 import { useForm } from "react-hook-form";
-import { useMemo, Fragment, useState } from "react";
+import {
+  useMemo,
+  Fragment,
+  useState,
+  useEffect,
+  JSXElementConstructor,
+  ReactElement,
+  ReactNode,
+  ReactPortal,
+} from "react";
 
 // import {  AreaChart, BarChart, PieChart, TrendingUp } from "lucide-react";
 import Link from "next/link";
@@ -75,6 +84,38 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import EmojiRating from "@/components/emoji-rating";
 import Calendar21 from "@/components/calendar-21";
+import { useSearchParams } from "next/navigation";
+import client from "@/api/client";
+type PerformanceEntry = {
+  total: string | number;
+  long: string | number;
+  short: string | number;
+};
+
+type Trade = {
+  account_id: number;
+  commission: number;
+  created_at: string; // ISO timestamp
+  emotion_tag: string | null;
+  entry_price: number;
+  entry_time: string; // ISO timestamp
+  exit_price: number;
+  exit_time: string; // ISO timestamp
+  fee: number;
+  id: number;
+  pos_trade_note: string | null;
+  position_id: number;
+  pre_trade_note: string | null;
+  profit_loss: number;
+  sl_price: number;
+  strategy_tag: string | null;
+  swap: number;
+  symbol: string;
+  tp_price: number;
+  trade_images: string | null;
+  trade_type: "buy" | "sell";
+  volume: number;
+};
 
 export default function Page() {
   const { defaultDate, scrollToTime } = useMemo(
@@ -125,9 +166,10 @@ export default function Page() {
   };
 
   const [tradeDetailState, setTradeDetailState] = useState(false);
-  const handleTradeDetailState = (element: boolean) => {
-    console.log(element);
+  const handleTradeDetailState = (element: boolean, data: Trade | null) => {
+    console.log(data);
     setTradeDetailState(element);
+    setTradeDetails(data);
   };
 
   const formSchema = z.object({
@@ -178,6 +220,77 @@ export default function Page() {
 
   const [beforeRating, setBeforeRating] = useState(0);
   const [afterRating, setAfterRating] = useState(0);
+
+  const urlParams = useSearchParams();
+  const account_id = urlParams.get("id");
+  console.log(account_id);
+
+  const [accPerf, setAccPerf] = useState<null | Array<any>>([]);
+  const [perPeriod, setPerPeriod] = useState<any>({});
+  const [togglePeriod, setTogglePeriod] = useState<string>("*");
+  const [pastTrade, setPastTrade] = useState<null | Array<any>>([]);
+  const [tradeDetail, setTradeDetails] = useState<Trade | null>();
+  const[liveTrade, setLiveTrade] = useState<null | Array<any>>([]);
+  const supabase = client;
+
+  // console.log(data)
+  useEffect(() => {
+    const fetchUserAccount = async () => {
+      const user_id = (await client.auth.getUser()).data.user?.id;
+      const acc = await supabase
+        .from("performance")
+        .select("*")
+        .eq("account_id", parseInt(account_id!));
+
+      const pastTrade = await supabase
+        .from("trade_history")
+        .select("*")
+        .eq("account_id", parseInt(account_id!))
+        .order("entry_time", { ascending: false })
+        .or("trade_type.eq.sell, trade_type.eq.buy");
+
+      setPastTrade(pastTrade.data);
+      console.log(pastTrade.data);
+      if (acc.data) {
+        const newArray = acc.data?.reduce((acc, currentVal, index) => {
+          const performance = JSON.parse(currentVal.performance);
+
+          currentVal.performance = performance;
+          acc[currentVal.period] = currentVal;
+          return acc;
+        });
+
+        setPerPeriod(newArray);
+      }
+
+      setAccPerf(acc.data);
+      // setUserStrategy(strategy.data);
+
+      console.log(perPeriod);
+    };
+
+    fetchUserAccount();
+
+    const fetchLiveTrade = async () => {
+      const liveTrade = await supabase
+        .from("open_trade")
+        .select("*")
+        .eq("account_id", parseInt(account_id!))
+        .order("entry_time", { ascending: false })
+        .or("trade_type.eq.sell, trade_type.eq.buy");
+
+        console.log(liveTrade.data)
+        setLiveTrade(liveTrade.data)
+    };
+
+    const interval = setInterval(() => {
+      fetchLiveTrade();
+    }, 5000); // every 5 seconds
+
+    // Cleanup on unmount
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="!px-[5%]">
       {/* Navigation Toggle*/}
@@ -223,47 +336,63 @@ export default function Page() {
                 <div className="flex flex-row justify-between w-[100%] !mb-[40px]">
                   <Card className="md:w-[23%] md:h-[200px] rounded-2xl  !p-[20px] ">
                     <CardHeader>
-                      <CardTitle>Gross Profit</CardTitle>
-                      <CardDescription>
-                        Showing total visitors for the last 6 months
-                      </CardDescription>
-                    </CardHeader>
-
-                    <h3>2000</h3>
-                  </Card>
-
-                  <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
-                    <CardHeader>
-                      <CardTitle>Gross loss</CardTitle>
-                      <CardDescription>
-                        Showing total visitors for the last 6 months
-                      </CardDescription>
-                    </CardHeader>
-                    <h3>2000</h3>
-                  </Card>
-
-                  <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
-                    <CardHeader>
                       <CardTitle>Net Profit</CardTitle>
                       <CardDescription>
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
-                    <h3>2000</h3>
+
+                    <h3>
+                      {perPeriod["*"]?.performance?.[
+                        "Net profit"
+                      ].total.toFixed(2)}
+                    </h3>
                   </Card>
 
                   <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
                     <CardHeader>
-                      <CardTitle>Profit Factor</CardTitle>
+                      <CardTitle>Profit Percentage</CardTitle>
                       <CardDescription>
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
-                    <h3>2000</h3>
+                    <h3>
+                      {perPeriod["*"]?.performance?.[
+                        "Percentage return"
+                      ].total.toFixed(2)}
+                    </h3>
+                  </Card>
+
+                  <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
+                    <CardHeader>
+                      <CardTitle>Total Returns</CardTitle>
+                      <CardDescription>
+                        Showing total visitors for the last 6 months
+                      </CardDescription>
+                    </CardHeader>
+                    <h3>
+                      {perPeriod["*"]?.performance?.[
+                        "Total trades"
+                      ].total.toFixed(2)}
+                    </h3>
+                  </Card>
+
+                  <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
+                    <CardHeader>
+                      <CardTitle>Average Return per trade</CardTitle>
+                      <CardDescription>
+                        Showing total visitors for the last 6 months
+                      </CardDescription>
+                    </CardHeader>
+                    <h3>
+                      {perPeriod["*"]?.performance?.[
+                        "Average trade"
+                      ].total.toFixed(2)}
+                    </h3>
                   </Card>
                 </div>
 
-                <div className="!mb-[50px]">
+                <div className="!mb-[50px] hidden">
                   {/* Second line of Metrics */}
                   <div className="flex flex-row justify-between">
                     <Card className="md:w-[32%] md:h-[200px] rounded-2xl !p-[20px] ">
@@ -302,8 +431,8 @@ export default function Page() {
                 </div>
 
                 {/* Third line of Return Metrics*/}
-                <div className="h-fit flex flex-row justify-between !mb-[40px]">
-                  <Card className="!p-[20px]  w-[49%]">
+                <div className="h-fit flex flex-row justify-between !mb-[40px] hidden">
+                  <Card className="!p-[20px]  w-[100%]">
                     <CardHeader>
                       <CardTitle>Account Returns</CardTitle>
                       <CardDescription>
@@ -359,9 +488,9 @@ export default function Page() {
                       </div>
                     </CardFooter>
                   </Card>
-                  <Card className="w-[49%] border-0 h-fit bg-transparent">
-                    <Calendar21></Calendar21>
-                  </Card>
+                  {/* <Card className="w-[49%] border-0 h-fit bg-transparent">
+                    {/* <Calendar21></Calendar21> */}
+                  {/* </Card> */}
                 </div>
               </div>
 
@@ -398,15 +527,43 @@ export default function Page() {
                     <SelectContent>
                       <SelectGroup className="!px-[5%]">
                         <SelectLabel>Period</SelectLabel>
-                        <SelectItem value="all">All history</SelectItem>
-                        <SelectItem value="week">This week</SelectItem>
-                        <SelectItem value="month">Current Month</SelectItem>
-                        <SelectItem value="last-month">
+                        <SelectItem value="*">All history</SelectItem>
+                        <SelectItem
+                          value="t-w"
+                          onClick={() => setTogglePeriod("t-w")}
+                        >
+                          This week
+                        </SelectItem>
+                        <SelectItem
+                          value="t-m"
+                          onClick={() => setTogglePeriod("t-m")}
+                        >
+                          Current Month
+                        </SelectItem>
+                        <SelectItem
+                          value="l-m"
+                          onClick={() => setTogglePeriod("l-m")}
+                        >
                           Previous Month
                         </SelectItem>
-                        <SelectItem value="3-month">Last 3 months </SelectItem>
-                        <SelectItem value="6-month">Last 6 months</SelectItem>
-                        <SelectItem value="year">Last year</SelectItem>
+                        <SelectItem
+                          value="3-m"
+                          onClick={() => setTogglePeriod("3-m")}
+                        >
+                          Last 3 months{" "}
+                        </SelectItem>
+                        <SelectItem
+                          value="6-m"
+                          onClick={() => setTogglePeriod("6-m")}
+                        >
+                          Last 6 months
+                        </SelectItem>
+                        <SelectItem
+                          value="12-m"
+                          onClick={() => setTogglePeriod("12-m")}
+                        >
+                          Last year
+                        </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
@@ -433,14 +590,46 @@ export default function Page() {
                       </TableHeader>
                       <TableBody>
                         {/* For loop */}
-                        <TableRow>
-                          <TableCell className="font-medium">INV001</TableCell>
-                          <TableCell className="text-right">Paid</TableCell>
-                          <TableCell className="text-right">
-                            Credit Card
-                          </TableCell>
-                          <TableCell className="text-right">$250.00</TableCell>
-                        </TableRow>
+
+                        {Object.entries(
+                          perPeriod[togglePeriod]?.performance || {}
+                        ).map(([key, value]) =>
+                          key === "period" ? (
+                            <></>
+                          ) : (
+                            <TableRow key={key}>
+                              <TableCell className="font-medium">
+                                {key}
+                              </TableCell>
+                              {(() => {
+                                const perf = value as {
+                                  total: string | number;
+                                  long: string | number;
+                                  short: string | number;
+                                };
+                                return (
+                                  <>
+                                    <TableCell className="text-right">
+                                      {typeof perf.total === "number"
+                                        ? perf.total.toFixed(2)
+                                        : String(perf.total)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {typeof perf.long === "number"
+                                        ? perf.long.toFixed(2)
+                                        : String(perf.long)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {typeof perf.short === "number"
+                                        ? perf.short.toFixed(2)
+                                        : String(perf.short)}
+                                    </TableCell>
+                                  </>
+                                );
+                              })()}
+                            </TableRow>
+                          )
+                        )}
                       </TableBody>
                     </Table>
                   </div>
@@ -576,7 +765,7 @@ export default function Page() {
                     <TableHead className="">Trade Type</TableHead>
                     {/* <TableHead className="w-[100px]">Take Profit</TableHead>
                     <TableHead className="w-[100px]">Stop Loss</TableHead> */}
-                    <TableHead className="">Current Price</TableHead>
+                    {/* <TableHead className="">Current Price</TableHead> */}
                     <TableHead className="">Date</TableHead>
                     {/* <TableHead> Action</TableHead> */}
                     {/* <TableHead>Method</TableHead> */}
@@ -592,19 +781,25 @@ export default function Page() {
                   >
                     {/* <button> */}
 
-                    <TableRow
-                      onClick={() => handleTradeDetailState(true)}
-                      className="h-[60px] !my-auto"
-                    >
-                      {/* <Checkbox className="!my-auto"></Checkbox> */}
-                      <TableCell className="font-medium !my-auto">
-                        INV001
-                      </TableCell>
-                      <TableCell>Paid</TableCell>
-                      <TableCell>Credit Card</TableCell>
-                      <TableCell className="">$250.00</TableCell>
-                    </TableRow>
+                    {liveTrade!.map((element) => (
+                      <TableRow
+                        onClick={() => handleTradeDetailState(true, element)}
+                        className="h-[60px] !my-auto"
+                      >
+                        {/* <Checkbox className="!my-auto"></Checkbox> */}
 
+                        <TableCell className="font-medium !my-auto">
+                          {element.symbol}
+                        </TableCell>
+                        <TableCell>{element.position_id}</TableCell>
+                        <TableCell>{element.trade_type}</TableCell>
+                        {/* <TableCell className="">$250.00</TableCell> */}
+                        <TableCell className="">{element.entry_time}</TableCell>
+                        <TableCell className="">
+                          {element.profit_loss}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                     {/* </button> */}
                   </TableBody>
                 ) : (
@@ -614,20 +809,27 @@ export default function Page() {
                       tradeDetailState ? "w-1/3" : "w-full"
                     }`}
                   >
-                    {/* <button> */}
+                    {}
 
-                    <TableRow
-                      onClick={() => handleTradeDetailState(true)}
-                      className="h-[60px] !my-auto"
-                    >
-                      {/* <Checkbox className="!my-auto"></Checkbox> */}
-                      <TableCell className="font-medium !my-auto">
-                        INV001
-                      </TableCell>
-                      <TableCell>Paid</TableCell>
-                      <TableCell>Credit Card</TableCell>
-                      <TableCell className="">$250.00</TableCell>
-                    </TableRow>
+                    {pastTrade!.map((element) => (
+                      <TableRow
+                        onClick={() => handleTradeDetailState(true, element)}
+                        className="h-[60px] !my-auto"
+                      >
+                        {/* <Checkbox className="!my-auto"></Checkbox> */}
+
+                        <TableCell className="font-medium !my-auto">
+                          {element.symbol}
+                        </TableCell>
+                        <TableCell>{element.position_id}</TableCell>
+                        <TableCell>{element.trade_type}</TableCell>
+                        {/* <TableCell className="">$250.00</TableCell> */}
+                        <TableCell className="">{element.entry_time}</TableCell>
+                        <TableCell className="">
+                          {element.profit_loss}
+                        </TableCell>
+                      </TableRow>
+                    ))}
 
                     {/* </button> */}
                   </TableBody>
@@ -647,7 +849,7 @@ export default function Page() {
                   <p>Details about the selected trade will go here.</p>
                 </div>
                 <button
-                  onClick={() => handleTradeDetailState(false)}
+                  onClick={() => handleTradeDetailState(false, null)}
                   className="!mt-4 !px-3 !py-1 rounded bg-red-500 text-white"
                 >
                   Close
@@ -660,7 +862,7 @@ export default function Page() {
                   className="space-y-8"
                 >
                   <div className="text-neutral-500">
-                    <h1 className="text-5xl"> XAU</h1>
+                    <h1 className="text-5xl"> {tradeDetail?.symbol}</h1>
                   </div>
                   <FormField
                     control={form.control}
@@ -669,7 +871,7 @@ export default function Page() {
                       <FormItem>
                         <div className="text-neutral-500">
                           <div className="flex flex-row justify-between items-center">
-                            <span> 12th Dec 2025</span>
+                            <span> {tradeDetail?.entry_time}</span>
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
@@ -716,27 +918,37 @@ export default function Page() {
                         <TableRow className="h-[60px] !my-auto border-0">
                           {/* <Checkbox className="!my-auto"></Checkbox> */}
                           <TableCell className="font-medium !my-auto">
-                            Trade ID :
+                            Trade ID : {tradeDetail?.position_id}
                           </TableCell>
-                          <TableCell>Swap : {""}</TableCell>
-                          <TableCell>Commission : {""}</TableCell>
-                          <TableCell>Fee : {""}</TableCell>
+                          <TableCell>Swap : {tradeDetail?.swap|| 0}</TableCell>
+                          <TableCell>
+                            Commission : {tradeDetail?.commission || 0}
+                          </TableCell>
+                          <TableCell>Fee : {tradeDetail?.fee || 0}</TableCell>
                         </TableRow>
                         <TableRow className="h-[60px] !my-auto border-0">
                           {/* <Checkbox className="!my-auto"></Checkbox> */}
                           <TableCell className="font-medium !my-auto">
-                            Entry Price : {""}
+                            Entry Price : {tradeDetail?.entry_price}
                           </TableCell>
-                          <TableCell>Current Price : {""}</TableCell>
-                          <TableCell>Target : {""}</TableCell>
-                          <TableCell>Stoploss : {""}</TableCell>
+                          <TableCell>
+                            Profit : {tradeDetail?.profit_loss}
+                          </TableCell>
+                          <TableCell>
+                            Target : {tradeDetail?.tp_price}
+                          </TableCell>
+                          <TableCell>
+                            Stoploss : {tradeDetail?.sl_price}
+                          </TableCell>
                         </TableRow>
                         <TableRow className="h-[60px] !my-auto border-0">
                           {/* <Checkbox className="!my-auto"></Checkbox> */}
                           <TableCell className="font-medium !my-auto">
-                            Volume : {""}
+                            Volume : {tradeDetail?.volume}
                           </TableCell>
-                          <TableCell>Trade type : {""}</TableCell>
+                          <TableCell>
+                            Trade type : {tradeDetail?.trade_type}
+                          </TableCell>
                           {/* <TableCell>Credit Card</TableCell> */}
                         </TableRow>
 
@@ -785,7 +997,7 @@ export default function Page() {
                   <div className="flex flex-row w-full justify-between">
                     <FormField
                       control={form.control}
-                      name="postTradeLink"
+                      name="preTradeLink"
                       render={({ field }) => (
                         <FormItem className=" w-[48%]">
                           {/* For the embeded link if nothing is returned then display the input field  else display the embededd link */}
@@ -850,7 +1062,7 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="!px-[20px]">
+                  <Button type="submit" className="!px-[20px]" >
                     Submit
                   </Button>
                 </form>

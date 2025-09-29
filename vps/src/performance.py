@@ -1038,57 +1038,59 @@ class Performance:
             return e
     
     async def store_stat(self, acc_id:int, stats:dict):
+        try:
         # Check if the account id and period exist if exist the update
         # add for new accounts
         
-        # For loop 
-        stat_arr = []
-        new_arr = []
-        # print(stats)
-        for period in stats:
-            # print(json.dumps(stats[period]))
-            # print(acc_id)
-            acc_period = self.supabase.table("performance").select("*",count="exact").eq("account_id",acc_id).eq("period",period).execute()
-            print(acc_period.count)
-            
-            
-            if acc_period.count > 0:
-                # self.supabase.table("Performance").update
-                perf_data = {
-                    "id": acc_period.data[0]["id"]    ,
-                    "account_id": acc_id,
-                    "period": period,
-                    "performance": json.dumps(stats[period]) ,
-                    "updated_at": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
-                }
-                
-                stat_arr.append(perf_data)
+            # For loop 
+            stat_arr = []
+            new_arr = []
+            # print(stats)
+            for period in stats:
+                # print(json.dumps(stats[period]))
+                # print(acc_id)
+                acc_period = self.supabase.table("performance").select("*",count="exact").eq("account_id",acc_id).eq("period",period).execute()
+                print(period)
                 
                 
-            else:
-                perf_data = {
-               
-                    "account_id": acc_id,
-                    "period": period,
-                    "performance":json.dumps(stats[period]),
-                    "updated_at": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
-                }
+                if acc_period.count > 0:
+                    # self.supabase.table("Performance").update
+                    perf_data = {
+                        "id": acc_period.data[0]["id"]    ,
+                        "account_id": acc_id,
+                        "period": period,
+                        "performance": json.dumps(stats[period]) ,
+                        "updated_at": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
+                    }
+                    
+                    stat_arr.append(perf_data)
+                    
+                    
+                else:
+                    perf_data = {
                 
-                new_arr.append(perf_data)
-        
-        
-        
-                # self.supabase.table("Performance").insert(per)
-        if  stat_arr:
+                        "account_id": acc_id,
+                        "period": period,
+                        "performance":json.dumps(stats[period]),
+                        "updated_at": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
+                    }
+                    
+                    new_arr.append(perf_data)
             
-            self.supabase.table("performance").upsert(stat_arr).execute()
             
             
-        if new_arr:
-            
-            self.supabase.table("performance").insert(new_arr).execute()
-            
-        
+                    # self.supabase.table("Performance").insert(per)
+            if  stat_arr:
+                
+                self.supabase.table("performance").upsert(stat_arr).execute()
+                
+                
+            if new_arr:
+                
+                self.supabase.table("performance").insert(new_arr).execute()
+                
+        except Exception as e:
+            print(e)    
     #Implement Max drawdown
     # async def roi(self, acc_id:int):
     #     pass

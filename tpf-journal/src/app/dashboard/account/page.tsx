@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/sidebar";
 import Image from "next/image";
 import mount from "../../../../public/mount.svg";
+import ctrader from "../../../../public/ctrader.jpg";
+import mt5 from "../../../../public/mt5.jpg";
 import { ChartNoAxesCombined, CirclePlus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -43,55 +45,47 @@ import { Label } from "@radix-ui/react-label";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useUser } from '@supabase/auth-helpers-react'; 
-
-// import useSWR from "swr";
-// import axios from "axios";
+import { useUser } from "@supabase/auth-helpers-react";
 import client from "@/api/client";
-// import {createServerComponentClient} from '@supabase/auth-helpers-nextjs'
-// import { cookies } from "next/headers";
-import { createClient } from "@/utils/supabase/component";
-
-// export async function getServerSideProps() {
-//     let { data } = await client.from('accounts').select()
-
-//     return {
-//       props: {
-//        countries: data
-//       },
-//     }}
-  
 
 export default function Page() {
   const data1 = [1, 2, 3];
-  const user = useUser()
+  const user = useUser();
 
   const [pageState, setPageState] = useState(true);
   const handlePageToggle = (element: boolean) => {
     setPageState(element);
   };
-  const supabase = client
+  const supabase = client;
 
   // const supa = createServerComponentClient({cookies})
   // const data = await supa.from("accounts").select()
   // console.log(data)
-  const [userAccs, setUserAccs] = useState<null|Array<any>>([])
+  const [userAccs, setUserAccs] = useState<null | Array<any>>([]);
+  const [userStrategy, setUserStrategy] = useState<null | Array<any>>([]);
 
   // console.log(data)
   useEffect(() => {
     const fetchUserAccount = async () => {
-      const user_id = (await client.auth.getUser()).data.user?.id
-      const {data, error} = await supabase.from("accounts").select("*").eq("user_id", user_id)
-      // console.log( await sup.from("accounts").select("*"))
-      // const data = client.from('accounts').select("*")
-      
-      console.log(data)
-      console.log(error)
-      console.log((await client.auth.getUser()).data.user?.id)
+      const user_id = (await client.auth.getUser()).data.user?.id;
+      const acc = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user_id);
+
+      const strategy = await supabase
+        .from("strategy")
+        .select("*")
+        .eq("user_id", user_id);
+
+      setUserAccs(acc.data);
+      setUserStrategy(strategy.data);
+
+      console.log(strategy.data);
     };
-    
-    fetchUserAccount()
-  },[]);
+
+    fetchUserAccount();
+  }, []);
 
   return (
     <div className="mt-auto w-full h-full">
@@ -395,7 +389,67 @@ export default function Page() {
       {pageState ? (
         // Account page
         <div className="w-[100%] !mt-[50px] flex flex-row justify-between">
-          {data1.map((element) => (
+          {userAccs ? (
+            userAccs!.map((element) => (
+              <Link
+                href={{pathname:"/dashboard/account/statistics",query:{id:element.id}}}
+                className="h-fit w-[30%] bg-neutral-900 rounded-2xl !mb-[20px] !my-auto flex flex-row justify-between items-center !px-7 !py-7 font-light text-neutral-700"
+              >
+                <div className="w-full text-neutral-400">
+                  <div className="flex flex-row justify-between !mb-[30px]">
+                    <div className="h-fit max-w-[100%] overflow-clip flex flex-col">
+                      <span>Account No</span>
+                      <span>{element.account_no}</span>
+                    </div>
+                    <div className="h-fit w-[20px] ">
+                      {element.platform === "mt5" ? (
+                        <Image
+                          src={mt5}
+                          alt="Background image"
+                          // width={"100"} // Set the appropriate width
+                          // fill={true}
+                          className="h-[20px] w-[20px] object-cover rounded-2xl" // Set the appropriate height
+                        />
+                      ) : element.platform == "ctrader" ? (
+                        <Image
+                          src={ctrader}
+                          alt="Background image"
+                          // width={"100"} // Set the appropriate width
+                          // fill={true}
+                          className="h-[20px] w-[20px] object-cover rounded-2xl" // Set the appropriate height
+                        />
+                      ) : (
+                        <></>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-row justify-between">
+                    <div className="flex flex-col">
+                      <span>Server</span>
+                      <span>{element.server_name}</span>
+                    </div>{" "}
+                    <div className="flex flex-col justify-between">
+                      {/* <span>Balance</span>
+                    <span> $ 4680.00</span> */}
+                    </div>
+                  </div>
+
+                  {/* <Link href="" className="h-fit">
+                <ChartNoAxesCombined size={20} strokeWidth={1} />
+              </Link> */}
+                </div>
+              </Link>
+            ))
+          ) : (
+            <> No account</>
+          )}
+        </div>
+      ) : (
+        // Strategy Page
+        <div className="w-[100%] !mt-[50px] flex flex-row justify-between">
+         
+          {userStrategy!.length > 0 ? (userStrategy!.map((element) => (
             <Link
               href="/dashboard/account/statistics"
               className="h-fit w-[30%] bg-neutral-900 rounded-2xl !mb-[20px] !my-auto flex flex-row justify-between items-center !px-7 !py-7 font-light text-neutral-700"
@@ -403,28 +457,40 @@ export default function Page() {
               <div className="w-full text-neutral-400">
                 <div className="flex flex-row justify-between !mb-[30px]">
                   <div className="h-fit max-w-[100%] overflow-clip flex flex-col">
-                    <span>Account Name</span>
-                    <span>Omieibi Bagshaw</span>
+                    <span>Account No</span>
+                    <span>{element.account_no}</span>
                   </div>
                   <div className="h-fit w-[20px] ">
-                    <Image
-                      src={mount}
-                      alt="Background image"
-                      // width={"100"} // Set the appropriate width
-                      // fill={true}
-                      className="h-[20px] w-[20px] object-cover rounded-2xl" // Set the appropriate height
-                    />
+                    {element.platform === "mt5" ? (
+                      <Image
+                        src={mt5}
+                        alt="Background image"
+                        // width={"100"} // Set the appropriate width
+                        // fill={true}
+                        className="h-[20px] w-[20px] object-cover rounded-2xl" // Set the appropriate height
+                      />
+                    ) : element.platform == "ctrader" ? (
+                      <Image
+                        src={ctrader}
+                        alt="Background image"
+                        // width={"100"} // Set the appropriate width
+                        // fill={true}
+                        className="h-[20px] w-[20px] object-cover rounded-2xl" // Set the appropriate height
+                      />
+                    ) : (
+                      <></>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-row justify-between">
                   <div className="flex flex-col">
-                    <span>Account No</span>
-                    <span>Omieibi Bagshaw</span>
+                    <span>Server</span>
+                    <span>{element.server_name}</span>
                   </div>{" "}
                   <div className="flex flex-col justify-between">
-                    <span>Balance</span>
-                    <span> $ 4680.00</span>
+                    {/* <span>Balance</span>
+                    <span> $ 4680.00</span> */}
                   </div>
                 </div>
 
@@ -433,45 +499,11 @@ export default function Page() {
               </Link> */}
               </div>
             </Link>
-          ))}
-        </div>
-      ) : (
-        // Strategy Page
-        <div className="w-[100%] !mt-[50px] flex flex-row justify-between">
-          {data1.map((element) => (
-            <Link
-              href="#"
-              className="h-fit w-[30%] bg-neutral-900 rounded-2xl !mb-[20px] !my-auto flex flex-row justify-between items-center !px-7 !py-7 font-light text-neutral-700"
-            >
-              <div className="w-full text-neutral-400">
-                <div className="flex flex-row justify-between !mb-[30px]">
-                  <div className="h-fit max-w-[100%] overflow-clip flex flex-col">
-                    <span>Strategy Name</span>
-                    <span>Omieibi Bagshaw</span>
-                  </div>
-                  <div className="h-fit flex flex-col">
-                    <span>Category</span>
-                    <span>Omieibi </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-row justify-between">
-                  <div className="flex flex-col">
-                    <span>Performance</span>
-                    <span>Omieibi Bagshaw</span>
-                  </div>
-                  <div className="flex flex-col justify-between">
-                    <span>Balance</span>
-                    <span> $ 4680.00</span>
-                  </div>
-                </div>
-
-                {/* <Link href="" className="h-fit">
-                <ChartNoAxesCombined size={20} strokeWidth={1} />
-              </Link> */}
-              </div>
-            </Link>
-          ))}
+          ))):<> <div className="w-[inherit] text-accent-foreground text-center">
+            
+            No strategy added yet
+            
+            </div></>}
         </div>
       )}
     </div>
