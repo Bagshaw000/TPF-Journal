@@ -98,7 +98,28 @@ class User(BaseModel):
     plan: str | None = None
     email: str 
     password: str 
-    
+
+
+class Account_Model(BaseModel):
+    broker_name:str | None = None
+    currency:str | None = None
+    balance:int| None = None
+    account_type:str | None = None
+    account_no:int | None = None
+    server_name:str | None = None
+    platform:str | None = None
+    max_risk:int | None = None
+    initial_capital:float | None = None
+    gross_profit:float | None = None
+    gross_loss:float | None = None
+    net_profit_loss:float | None = None
+    percentage_profit_loss:str | None = None
+    leverage:float | None = None
+    user_id:str | None = None
+    updated_at:datetime| None = None
+    password:str | None = None
+
+
     
 class Session(BaseModel):
     access_token:str

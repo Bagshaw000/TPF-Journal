@@ -9,7 +9,7 @@
     #     except Exception as e:
     #         return e   
 from .db import supabase_conn   
-from .model import Acc_Model
+from .model import Acc_Model,Return_Type
 from .account import Accounts
 from .mt5 import Mt5_Class
 from .trade_history import Trader_History
@@ -392,12 +392,35 @@ class Position:
     '''
     Update position from open trade database
     '''    
-    async def update_open_pos(self, data:list):
+    async def update_open_pos(self, data:list, pos_id:int):
         try:
-            open_pos = self.supabase.table("open_trade").upsert(data).execute()
-            return open_pos.data
+            
+            check = await self.check_pos(pos_id)
+            
+            if check.status == True:
+                open_pos = self.supabase.table("open_trade").upsert(data).execute()
+                
+                return  Return_Type(status=True,msg="success", data=open_pos.data)
+            
+            open_pos = await self.trade_hist.update_trade(data)
+            
+            if open_pos.data:
+                return  Return_Type(status=True,msg="success", data=open_pos.data)
+            
+            return Return_Type(status=False,msg="fail",data=None)
         except Exception as e:
             return e 
+    
+    async def check_pos(self, pos_id:int):
+        try: 
+            pos = self.supabase.table("open_trade").select(count= "exact").eq("id",pos_id).execute()
+            
+            if pos.count > 0:
+                return Return_Type(status=True,msg="success",data=None)
+            
+            return Return_Type(status=False,msg="fail",data=None)
+        except Exception as e:
+            return e
     
     '''
     Delete  one position from open trade database

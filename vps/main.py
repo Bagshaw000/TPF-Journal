@@ -3,13 +3,14 @@ import asyncio
 from fastapi import FastAPI, WebSocketDisconnect, APIRouter
 import os
 import MetaTrader5 as mt5
-from src.model import Acc_Model,Deal_Req,Pos_Id, Acc_Id,User,Return_Type
+from src.model import Acc_Model,Deal_Req,Pos_Id, Acc_Id,User,Return_Type, Account_Model
 from fastapi.encoders import jsonable_encoder
 from src.mt5 import Mt5_Class
 from src.auth import Auth
 from src.account import Accounts
 from src.position import Position
 from src.performance import Performance
+from src.strategy import Strategy
 import json
 from datetime import datetime
 import websockets
@@ -49,6 +50,7 @@ auth_obj = Auth()
 acc_obj = Accounts()
 pos_obj = Position()
 perf_obj = Performance()
+stra_obj = Strategy()
 queue = asyncio.Queue(maxsize=100)
 perf_queue = asyncio.Queue(maxsize=100)
 mt5_acc_queue = asyncio.Queue(maxsize=100)
@@ -62,7 +64,7 @@ async def producer():
             if acc_list:
                 
                 
-                for acc in acc_list:
+                for acc in acc_list.data:
                    
                     # print(acc_list)
                     await queue.put(acc)
@@ -100,9 +102,7 @@ async def consumer():
 
             # print(user["id"])
             # print(user["platform"])
-           
-            
-            # print(acc)
+        
             if user["platform"] == "mt5":
                 acc_det =Acc_Model(login=int(user["account_no"]), password=str(user["password"]),server=str(user['server_name']),platform='mt5')
                 
@@ -120,7 +120,9 @@ async def consumer():
             queue.task_done()
     except Exception as e:
         print("Live trade Consumer is disconnected")
-        await asyncio.sleep(5)
+        print(e)
+        await asyncio.sleep(1)
+        
         # await consumer()
 
 
@@ -198,7 +200,7 @@ async def mt5_consumer():
         acc = await mt5_acc_queue.get()
         
         try:
-            print("Error")
+            
             
             await pos_obj.get_all_user_last_trade(acc)
            
@@ -274,13 +276,33 @@ async def create_user(req:User, res:Return_Type):
 @router.post('/account/setup/{user_id}', tags=["account"])
 async def setup_account(user_id:str,req:Deal_Req,starting_bal:float):
     
-    print(user_id)
-    print(req)
+    # print(user_id)
+    # print(req)
     res = await acc_obj.account_setup(user_id, req, starting_bal)
 
-    
     return res
 
+@router.get('/account/all', tags=["account"])
+async def get_all_accounts():
+    accs = await acc_obj.get_all_account()
+    
+    return accs
+
+@router.put('/account/{acc_id}', tags=["accounts"])
+async def update_account(res:Account_Model,acc_id:int):
+    
+    accs = await acc_obj.update_acc_by_id(acc_id,res)
+    return accs
+
+@router.get('/account/{id}',tags=["account"])
+async def get_account( id:int):
+    accs = await acc_obj.get_acc_by_id(id)
+    return accs
+
+@router.get('/account/user/{id}',tags=["account"])
+async def get_account( id:int):
+    accs = await acc_obj.get_all_user_account(id)
+    return accs
 
 @router.post('/mt5/setup',)
 async def get_user(req:Deal_Req):    
@@ -291,7 +313,43 @@ async def get_user(req:Deal_Req):
     
     return acc_data
 
+'''
+Strategy
+'''
+@router.get('/strategy/{user_id}', tags=["strategy"])
+async def get_user_strategy(user_id:str):
+    
+    stra =  await stra_obj.get_all_strategy_by_user(user_id)
+    
+    return stra   
 
+@router.put('/strategy', tags=["strategy"])
+async def get_user_strategy(res:dict):
+    
+    stra =  await stra_obj.update_strategy(res)
+    
+    return stra  
+    
+@router.post('/strategy', tags=["strategy"])
+async def create_strategy(res:dict):
+    stra = await stra_obj.create_strategy(res)
+    return stra  
+
+
+'''
+Open Position
+'''  
+@router.get("/openpos/{acc_id}")
+async def get_open_pos(acc_id:int):
+    pos = await pos_obj.get_mt5_open_trade_acc_id(acc_id)
+    
+    return pos
+
+@router.put("/openpos/{acc_id}")
+async def update_open_pos(acc_id:int, data:list):
+    pos = await pos_obj.update_open_pos(data)
+    
+    return pos
 # Test the login
 # @app.post("/account_info")
 # async def get_acc_info(req:Acc_Model):

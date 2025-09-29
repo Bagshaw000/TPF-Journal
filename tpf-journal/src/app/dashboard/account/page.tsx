@@ -40,17 +40,58 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@radix-ui/react-label";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useUser } from '@supabase/auth-helpers-react'; 
+
+// import useSWR from "swr";
+// import axios from "axios";
+import client from "@/api/client";
+// import {createServerComponentClient} from '@supabase/auth-helpers-nextjs'
+// import { cookies } from "next/headers";
+import { createClient } from "@/utils/supabase/component";
+
+// export async function getServerSideProps() {
+//     let { data } = await client.from('accounts').select()
+
+//     return {
+//       props: {
+//        countries: data
+//       },
+//     }}
+  
 
 export default function Page() {
-  const data = [1, 2, 3];
+  const data1 = [1, 2, 3];
+  const user = useUser()
 
   const [pageState, setPageState] = useState(true);
   const handlePageToggle = (element: boolean) => {
     setPageState(element);
   };
+  const supabase = client
+
+  // const supa = createServerComponentClient({cookies})
+  // const data = await supa.from("accounts").select()
+  // console.log(data)
+  const [userAccs, setUserAccs] = useState<null|Array<any>>([])
+
+  // console.log(data)
+  useEffect(() => {
+    const fetchUserAccount = async () => {
+      const user_id = (await client.auth.getUser()).data.user?.id
+      const {data, error} = await supabase.from("accounts").select("*").eq("user_id", user_id)
+      // console.log( await sup.from("accounts").select("*"))
+      // const data = client.from('accounts').select("*")
+      
+      console.log(data)
+      console.log(error)
+      console.log((await client.auth.getUser()).data.user?.id)
+    };
+    
+    fetchUserAccount()
+  },[]);
 
   return (
     <div className="mt-auto w-full h-full">
@@ -78,7 +119,7 @@ export default function Page() {
               )}
             </button>
           </div>
-
+          {}
           {pageState ? (
             // Account Page button
             <div className="w-fit !ml-[10px] !my-auto text-base flex flex-row justify-between items-center font-light">
@@ -92,7 +133,6 @@ export default function Page() {
                     >
                       <CirclePlus />{" "}
                       <span className="font-light text-sm">
-                        
                         Connect new account
                       </span>
                     </Button>
@@ -202,7 +242,7 @@ export default function Page() {
             </div>
           ) : (
             <>
-            {/* Strategy connect button */}
+              {/* Strategy connect button */}
               <Dialog>
                 <form>
                   <DialogTrigger asChild>
@@ -355,7 +395,7 @@ export default function Page() {
       {pageState ? (
         // Account page
         <div className="w-[100%] !mt-[50px] flex flex-row justify-between">
-          {data.map((element) => (
+          {data1.map((element) => (
             <Link
               href="/dashboard/account/statistics"
               className="h-fit w-[30%] bg-neutral-900 rounded-2xl !mb-[20px] !my-auto flex flex-row justify-between items-center !px-7 !py-7 font-light text-neutral-700"
@@ -398,7 +438,7 @@ export default function Page() {
       ) : (
         // Strategy Page
         <div className="w-[100%] !mt-[50px] flex flex-row justify-between">
-          {data.map((element) => (
+          {data1.map((element) => (
             <Link
               href="#"
               className="h-fit w-[30%] bg-neutral-900 rounded-2xl !mb-[20px] !my-auto flex flex-row justify-between items-center !px-7 !py-7 font-light text-neutral-700"

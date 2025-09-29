@@ -1,5 +1,5 @@
 from .db import supabase_conn 
-
+from .model import  Return_Type
 
 
 class Strategy:
@@ -46,6 +46,9 @@ class Strategy:
     async def get_strategy_by_id(self, id:int):
         try :
             strategy = self.supabase.table("strategy").select("*").eq("id" , id).execute()
+            
+            if strategy.data:
+                return ReturnT
             return strategy.data
         except Exception as e:
             return e

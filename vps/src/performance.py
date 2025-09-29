@@ -1058,7 +1058,7 @@ class Performance:
                     "id": acc_period.data[0]["id"]    ,
                     "account_id": acc_id,
                     "period": period,
-                    "performance": json.dumps(stats[period]),
+                    "performance": json.dumps(stats[period]) ,
                     "updated_at": datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")
                 }
                 

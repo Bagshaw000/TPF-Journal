@@ -32,8 +32,48 @@ class Accounts:
         try:
             
             accounts = self.supabase.table("accounts").select("*").execute()
+            if accounts.data:
+                return Return_Type(status=True, msg="Success", data=accounts.data)
             
-            return accounts.data
+            return  Return_Type(status=False, msg="Success", data=None)
+        except Exception as e:
+            return e
+    
+    '''
+    Get all user accounts
+    '''
+    async def get_all_user_account(self, user_id:str):
+        try:
+            accounts = self.supabase.table("accounts").select("*").eq("user_id", user_id).execute()
+            
+            if accounts.data:
+                return Return_Type(status=True, msg="Success", data=accounts.data)
+            
+            return  Return_Type(status=False, msg="Success", data=None)
+        except Exception as e:
+            return e
+    
+    '''
+    ''' 
+    async def get_acc_by_id(self, id:int):
+        try:
+            account = self.supabase.table("accounts").select("*").eq("id", id).execute()
+            if account.data:
+                return Return_Type(status=True, msg="success", data=account.data)  
+            
+            return Return_Type(status=False, msg="success", data=None)
+        except Exception as e:
+            return e
+        
+        
+    async def update_acc_by_id(self, id:int, data:dict):
+        try:
+            account = self.supabase.table("accounts").update(data).eq("id",id).execute()
+            
+            if account.data:
+                return Return_Type(status=True, msg="success", data=account.data)
+            
+            return Return_Type(status=False, msg="success", data=None)
         except Exception as e:
             return e
     

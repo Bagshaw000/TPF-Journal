@@ -1,4 +1,5 @@
 "use client";
+import useSWR, { SWRConfig } from 'swr'
 import Image from "next/image";
 import styles from "./page.module.css";
 import {
@@ -20,35 +21,50 @@ import Link from "next/link";
 import { Fullscreen } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "../../utils/supabase/component";
+// import { createClient } from "../utils/supabase/server";
+import {} from "@supabase/supabase-js"
+import useAuth from '@/hooks/useAuth';
+import client from '@/api/client';
+
+import { AuthContextType } from '@/components/context/AuthProvider';
 
 export default function Home() {
+  const {user, loading} = useAuth() as AuthContextType
   const [signup, setSignup] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
+  // const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-
+  if(!loading && user){
+    // router.push("/dashboard/account");
+  }
   async function logIn() {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data,error } = await client.auth.signInWithPassword({
       email,
       password,
     });
+    console.log(data)
+    if(data){
+      router.push("/dashboard/account");
+    }
     if (error) {
       console.error(error);
     }
-    router.push("/dashboard/account");
+    
   }
 
   async function signUp() {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data,error } = await client.auth.signUp({ email, password });
+    console.log(data)
     if (error) {
       console.error(error);
     }
     router.push("/");
   }
+
+  // const {data: accounts} = useSWR()
   // handleClick() {
 
   // }
@@ -185,6 +201,7 @@ export default function Home() {
                 <Button
                   type="submit"
                   className="w-full bg-white text-neutral-900"
+                  onClick={signUp}
                 >
                   Create Account
                 </Button>

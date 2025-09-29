@@ -52,7 +52,14 @@ class Trader_History:
             return trade_hist.data
         except Exception as e:
             return e
-        
+    
+    async def update_trade(self, data):
+        try:
+            
+            trade_hist = self.supabase.table("trade_history").upsert(data).execute()
+            return trade_hist
+        except Exception as e:
+            return e
     async def get_user_last_trade(self,acc_id):
         try:
             trade_hist = self.supabase.table("trade_history").select('*').eq("account_id",acc_id).order('exit_time', desc=True).limit(1).execute()

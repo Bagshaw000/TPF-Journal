@@ -24,3 +24,4 @@ export default function createClient(req: NextApiRequest, res: NextApiResponse) 
 
   return supabase
 }
+
