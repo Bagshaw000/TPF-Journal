@@ -107,49 +107,21 @@ type Trade = {
   position_id: number;
   pre_trade_note: string | null;
   profit_loss: number;
+  current_price: number | null;
   sl_price: number;
   strategy_tag: string | null;
   swap: number;
   symbol: string;
   tp_price: number;
-  trade_images: string | null;
+  trade_images: {
+    pre_trade: string | null;
+    post_trade: string | null;
+  };
   trade_type: "buy" | "sell";
   volume: number;
 };
 
 export default function Page() {
-  const { defaultDate, scrollToTime } = useMemo(
-    () => ({
-      defaultDate: new Date(2015, 1, 1, 6),
-      scrollToTime: new Date(2015, 1, 1, 6),
-    }),
-    []
-  );
-  const localizer = dateFnsLocalizer({
-    format,
-    parse,
-    startOfWeek,
-    getDay,
-    // locales: { "en-US": enUS },
-  });
-
-  const chartData = [
-    { month: "January", desktop: 186 },
-    { month: "February", desktop: 305 },
-    { month: "March", desktop: 237 },
-    { month: "April", desktop: 73 },
-    { month: "May", desktop: 209 },
-    { month: "June", desktop: 214 },
-  ];
-
-  const chartConfig = {
-    desktop: {
-      label: "Desktop",
-      color: "var(--chart-1)",
-    },
-  } satisfies ChartConfig;
-  //   const localizer = globalizeLocalizer(globalize);
-
   const [pageState, setPageState] = useState(true);
   const handlePageToggle = (element: boolean) => {
     setPageState(element);
@@ -173,29 +145,19 @@ export default function Page() {
   };
 
   const formSchema = z.object({
-    strategy: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
+    strategy: z.string(),
 
-    preTradeLink: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
-    postTradeLink: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
-    preTradeNote: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
-    postTradeNote: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
-    preTradeRating: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
-    postTradeRating: z.string().min(2, {
-      message: "Username must be at least 2 characters.",
-    }),
+    preTradeLink: z.string(),
+    postTradeLink: z.string(),
+    preTradeNote: z.string(),
+    postTradeNote: z.string(),
   });
+
+  const options: Intl.DateTimeFormatOptions = {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  };
 
   // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
@@ -206,16 +168,100 @@ export default function Page() {
       postTradeLink: "",
       preTradeNote: "",
       postTradeNote: "",
-      preTradeRating: "",
-      postTradeRating: "",
     },
   });
 
   // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     // Do something with the form values.
     // ✅ This will be type-safe and validated.
-    console.log(values);
+
+    let strategyStatus: string | null = values.strategy;
+
+    if (values.strategy === "") {
+      strategyStatus = null;
+    }
+
+    const openTradeJournal = {
+      strategy_tag: parseInt(strategyStatus!) || null,
+      pre_trade_note: values.preTradeNote,
+      pos_trade_note: values.postTradeNote,
+      trade_images: {
+        pre_trade: values.preTradeLink,
+        post_trade: values.postTradeLink,
+      },
+      emotion_tag: {
+        pre_trade: beforeRating,
+        post_trade: afterRating,
+      },
+    };
+
+    // For completed trade
+    if (
+      tradeDetail?.current_price !== null ||
+      tradeDetail.current_price !== undefined
+    ) {
+      const acc = await supabase
+        .from("trade_history")
+        .update(openTradeJournal)
+        .eq("id", tradeDetail?.id!);
+
+      if (acc.data) {
+        // Show a toast of succes
+      } else {
+        // Show a toast
+      }
+    } else {
+      // Else update close position based on id
+      const acc = await supabase
+        .from("open_trade")
+        .update(openTradeJournal)
+        .eq("id", tradeDetail?.id!);
+      if (!acc.data) {
+        const updateHist = await supabase
+          .from("trade_history")
+          .update(openTradeJournal)
+          .eq("id", tradeDetail?.id!);
+
+        if (updateHist.data) {
+          // Toast issue
+        }
+      } else {
+        // Show toast of the succes
+      }
+    }
+    setAfterRating(0);
+    setBeforeRating(0);
+  }
+
+  function averageDateFormat(dateStr: string) {
+    
+    if (dateStr && typeof dateStr === "string" && dateStr !== "0" ) {
+      // Split into days and time
+      const [daysPart, timePart] = dateStr.split(", ");
+      
+
+      const days = parseInt(daysPart, 10) || 0;
+
+      // Extract time (HH:MM:SS.mmm)
+      const [hours, minutes, secondsPart] = timePart.split(":");
+      const hoursNum = parseInt(hours) || 0;
+      const minutesNum = parseInt(minutes) || 0;
+      const secondsNum = Math.floor(parseFloat(secondsPart)) || 0;
+
+      // Pick a base date (example: now)
+      const seconds = Math.floor(parseFloat(secondsPart)); // remove milliseconds
+
+// Build formatted string
+let result = "";
+if (days) result += `${days} days `;
+if (hours) result += `${parseInt(hours)} hours `;
+if (minutes) result += `${parseInt(minutes)} min `;
+if (seconds) result += `${seconds} sec`;
+      return result;
+    } else {
+      return dateStr;
+    }
   }
 
   const [beforeRating, setBeforeRating] = useState(0);
@@ -223,20 +269,19 @@ export default function Page() {
 
   const urlParams = useSearchParams();
   const account_id = urlParams.get("id");
-  console.log(account_id);
 
   const [accPerf, setAccPerf] = useState<null | Array<any>>([]);
   const [perPeriod, setPerPeriod] = useState<any>({});
   const [togglePeriod, setTogglePeriod] = useState<string>("*");
   const [pastTrade, setPastTrade] = useState<null | Array<any>>([]);
   const [tradeDetail, setTradeDetails] = useState<Trade | null>();
-  const[liveTrade, setLiveTrade] = useState<null | Array<any>>([]);
+  const [liveTrade, setLiveTrade] = useState<null | Array<any>>([]);
+  const [userStrategy, setUserStrategy] = useState<null | Array<any>>([]);
   const supabase = client;
 
   // console.log(data)
   useEffect(() => {
     const fetchUserAccount = async () => {
-      const user_id = (await client.auth.getUser()).data.user?.id;
       const acc = await supabase
         .from("performance")
         .select("*")
@@ -250,26 +295,21 @@ export default function Page() {
         .or("trade_type.eq.sell, trade_type.eq.buy");
 
       setPastTrade(pastTrade.data);
-      console.log(pastTrade.data);
-      if (acc.data) {
-        const newArray = acc.data?.reduce((acc, currentVal, index) => {
-          const performance = JSON.parse(currentVal.performance);
 
+      if (acc.data) {
+        const newArray = acc.data.reduce((accObj: any, currentVal: any) => {
+          const performance = JSON.parse(currentVal.performance);
           currentVal.performance = performance;
-          acc[currentVal.period] = currentVal;
-          return acc;
-        });
+          accObj[currentVal.period] = currentVal; // key by period
+          return accObj;
+        }, {});
 
         setPerPeriod(newArray);
       }
 
       setAccPerf(acc.data);
       // setUserStrategy(strategy.data);
-
-      console.log(perPeriod);
     };
-
-    fetchUserAccount();
 
     const fetchLiveTrade = async () => {
       const liveTrade = await supabase
@@ -279,13 +319,25 @@ export default function Page() {
         .order("entry_time", { ascending: false })
         .or("trade_type.eq.sell, trade_type.eq.buy");
 
-        console.log(liveTrade.data)
-        setLiveTrade(liveTrade.data)
+      // console.log(liveTrade.data);
+      setLiveTrade(liveTrade.data);
     };
+
+    const getUserStrategy = async () => {
+      const userId = (await client.auth.getUser()).data.user?.id;
+      const allUserStrategy = await supabase
+        .from("strategy")
+        .select("*")
+        .eq("user_id", userId);
+
+      setUserStrategy(allUserStrategy.data);
+    };
+    getUserStrategy();
+    fetchUserAccount();
 
     const interval = setInterval(() => {
       fetchLiveTrade();
-    }, 5000); // every 5 seconds
+    }, 15000); // every 5 seconds
 
     // Cleanup on unmount
     return () => clearInterval(interval);
@@ -321,28 +373,28 @@ export default function Page() {
       {/* Performance Dashboard */}
       {pageState ? (
         <div className="w-[100%]">
-          <h1 className="text-3xl font-bold">Performance</h1>
+          <h1 className="text-3xl ">Performance</h1>
           <p className="!mt-2 text-muted-foreground">
-            This dashboard shows advanced performance metrics of this account
+            This dashboard shows  performance metrics of this account
           </p>
 
           <div className="!mt-[50px]">
             <div className="">
               {/* Return Metrics */}
               <div className="!mb-[100px]">
-                <h1 className="text-4xl !mb-[20px]">Return Metrics</h1>
+                <h1 className="text-3xl !mb-[20px]">Return Metrics</h1>
 
                 {/* First line of Metrics */}
                 <div className="flex flex-row justify-between w-[100%] !mb-[40px]">
                   <Card className="md:w-[23%] md:h-[200px] rounded-2xl  !p-[20px] ">
                     <CardHeader>
-                      <CardTitle>Net Profit</CardTitle>
+                      <CardTitle>Net Profit {}</CardTitle>
                       <CardDescription>
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
 
-                    <h3>
+                    <h3 className="text-2xl !mt-[20px]">
                       {perPeriod["*"]?.performance?.[
                         "Net profit"
                       ].total.toFixed(2)}
@@ -356,7 +408,7 @@ export default function Page() {
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
-                    <h3>
+                    <h3 className="text-2xl !mt-[20px]">
                       {perPeriod["*"]?.performance?.[
                         "Percentage return"
                       ].total.toFixed(2)}
@@ -365,12 +417,12 @@ export default function Page() {
 
                   <Card className="md:w-[23%] md:h-[200px] rounded-2xl  flex flex-col !p-[20px] ">
                     <CardHeader>
-                      <CardTitle>Total Returns</CardTitle>
+                      <CardTitle>Total Trades</CardTitle>
                       <CardDescription>
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
-                    <h3>
+                    <h3 className="text-2xl !mt-[20px]">
                       {perPeriod["*"]?.performance?.[
                         "Total trades"
                       ].total.toFixed(2)}
@@ -384,7 +436,7 @@ export default function Page() {
                         Showing total visitors for the last 6 months
                       </CardDescription>
                     </CardHeader>
-                    <h3>
+                    <h3 className="text-2xl !mt-[20px]">
                       {perPeriod["*"]?.performance?.[
                         "Average trade"
                       ].total.toFixed(2)}
@@ -431,72 +483,11 @@ export default function Page() {
                 </div>
 
                 {/* Third line of Return Metrics*/}
-                <div className="h-fit flex flex-row justify-between !mb-[40px] hidden">
-                  <Card className="!p-[20px]  w-[100%]">
-                    <CardHeader>
-                      <CardTitle>Account Returns</CardTitle>
-                      <CardDescription>
-                        Showing total visitors for the last 6 months
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ChartContainer
-                        className="h-[100%] w-[100%]"
-                        config={chartConfig}
-                      >
-                        <AreaChart
-                          accessibilityLayer
-                          data={chartData}
-                          margin={{
-                            left: 0,
-                            right: 0,
-                          }}
-                        >
-                          <CartesianGrid vertical={false} />
-                          <XAxis
-                            dataKey="month"
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={8}
-                            tickFormatter={(value) => value.slice(0, 3)}
-                          />
-                          <ChartTooltip
-                            cursor={false}
-                            content={<ChartTooltipContent indicator="line" />}
-                          />
-                          <Area
-                            dataKey="desktop"
-                            type="natural"
-                            fill="var(--color-desktop)"
-                            fillOpacity={0.4}
-                            stroke="var(--color-desktop)"
-                          />
-                        </AreaChart>
-                      </ChartContainer>
-                    </CardContent>
-                    <CardFooter>
-                      <div className="flex w-full items-start gap-2 text-sm">
-                        <div className="grid gap-2">
-                          <div className="flex items-center gap-2 leading-none font-medium">
-                            Trending up by 5.2% this month
-                            {/* <TrendingUp className="h-4 w-4" /> */}
-                          </div>
-                          <div className="text-muted-foreground flex items-center gap-2 leading-none">
-                            January - June 2024
-                          </div>
-                        </div>
-                      </div>
-                    </CardFooter>
-                  </Card>
-                  {/* <Card className="w-[49%] border-0 h-fit bg-transparent">
-                    {/* <Calendar21></Calendar21> */}
-                  {/* </Card> */}
-                </div>
               </div>
 
               {/* Trade Statisitics*/}
               <div className="!mb-[100px]">
-                <h1 className="text-4xl !mb-[20px]">Trade Statistics</h1>
+                <h1 className="text-3xl !mb-[20px]">Trade Statistics</h1>
 
                 <div className="!mb-[10px]  w-[350px] justify-between flex flex-row">
                   <button
@@ -574,7 +565,7 @@ export default function Page() {
                   <div>
                     <Table>
                       <TableHeader>
-                        <TableRow className="text-zinc-800">
+                        <TableRow className="text-zinc-800 text-base">
                           <TableHead className="w-[40%]">Summary</TableHead>
                           <TableHead className="text-right">
                             All trades
@@ -595,10 +586,52 @@ export default function Page() {
                           perPeriod[togglePeriod]?.performance || {}
                         ).map(([key, value]) =>
                           key === "period" ? (
-                            <></>
+                            <div key={key}></div>
+                          ) : [
+                              "Average trade duration",
+                              "Average win trade duration",
+                              "Average loss trades duration",
+                            ].includes(key) ? (
+                            <TableRow key={key}>
+                              <TableCell className="font-normal text-lg">
+                                {key}
+                              </TableCell>
+                              {(() => {
+                                const perf = value as {
+                                  total: string;
+                                  long: string;
+                                  short: string;
+                                };
+                                return (
+                                  <>
+                                    <TableCell className="text-right text-lg">
+                                      {
+                                        averageDateFormat(
+                                          perf.total! as string
+                                        ) as string
+                                      }
+                                    </TableCell>
+                                    <TableCell className="text-right text-lg">
+                                      {
+                                        averageDateFormat(
+                                          perf.long! as string
+                                        ) as string
+                                      }
+                                    </TableCell>
+                                    <TableCell className="text-right text-lg">
+                                      {
+                                        averageDateFormat(
+                                          perf.short! as string
+                                        ) as string
+                                      }
+                                    </TableCell>
+                                  </>
+                                );
+                              })()}
+                            </TableRow>
                           ) : (
                             <TableRow key={key}>
-                              <TableCell className="font-medium">
+                              <TableCell className="font-normal text-lg">
                                 {key}
                               </TableCell>
                               {(() => {
@@ -609,17 +642,17 @@ export default function Page() {
                                 };
                                 return (
                                   <>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right text-lg">
                                       {typeof perf.total === "number"
                                         ? perf.total.toFixed(2)
                                         : String(perf.total)}
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right text-lg">
                                       {typeof perf.long === "number"
                                         ? perf.long.toFixed(2)
                                         : String(perf.long)}
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right text-lg">
                                       {typeof perf.short === "number"
                                         ? perf.short.toFixed(2)
                                         : String(perf.short)}
@@ -703,8 +736,11 @@ export default function Page() {
           {/* Trades Page */}
           <div className="!mb-[50px]">
             {" "}
-            <h1 className="font-medium text-2xl">Trades</h1>
-            <span>Page Description</span>
+            <h1 className="font-medium text-3xl">Trades</h1>
+            <div className="!mt-2 text-muted-foreground">
+              View live and past profitable trades, and journal your strategies
+              for improvement.
+            </div>
           </div>
           <div className="!mb-[10px]  w-full justify-between flex flex-row">
             <div className="w-[100px] flex flex-row justify-between">
@@ -758,7 +794,7 @@ export default function Page() {
               <Table>
                 <TableCaption> All current trades on this account</TableCaption>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="text-base">
                     {/* <TableHead colSpan={1}></TableHead> */}
                     <TableHead className="">Symbol</TableHead>
                     <TableHead className="">Trade ID</TableHead>
@@ -780,26 +816,51 @@ export default function Page() {
                     }`}
                   >
                     {/* <button> */}
+                    {liveTrade !== null ? (
+                      <>
+                        {liveTrade!.map((element) => (
+                          <TableRow
+                            onClick={() =>
+                              handleTradeDetailState(true, element)
+                            }
+                            className="h-[60px] !my-auto text-lg"
+                          >
+                            {/* <Checkbox className="!my-auto"></Checkbox> */}
 
-                    {liveTrade!.map((element) => (
-                      <TableRow
-                        onClick={() => handleTradeDetailState(true, element)}
-                        className="h-[60px] !my-auto"
-                      >
-                        {/* <Checkbox className="!my-auto"></Checkbox> */}
+                            <TableCell className=" !my-auto">
+                              {element.symbol}
+                            </TableCell>
+                            <TableCell>{element.position_id}</TableCell>
+                            <TableCell>
+                              {element.trade_type == "buy" ? (
+                                <div className="w-fit !px-6 rounded-2xl font-medium  bg-emerald-200 text-emerald-800">
+                                  Buy
+                                </div>
+                              ) : (
+                                <div className="w-fit !px-6 rounded-2xl font-medium  bg-red-300 text-red-500">
+                                  Sell
+                                </div>
+                              )}
+                            </TableCell>
+                            {/* <TableCell className="">$250.00</TableCell> */}
+                            <TableCell className="">
+                              {new Date(
+                                element?.entry_time as string
+                              ).toLocaleDateString("en-GB", options)}
+                            </TableCell>
+                            <TableCell className="">
+                              {element.profit_loss}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {" "}
+                        <h1 className="text-center"> No Open Trades</h1>
+                      </>
+                    )}
 
-                        <TableCell className="font-medium !my-auto">
-                          {element.symbol}
-                        </TableCell>
-                        <TableCell>{element.position_id}</TableCell>
-                        <TableCell>{element.trade_type}</TableCell>
-                        {/* <TableCell className="">$250.00</TableCell> */}
-                        <TableCell className="">{element.entry_time}</TableCell>
-                        <TableCell className="">
-                          {element.profit_loss}
-                        </TableCell>
-                      </TableRow>
-                    ))}
                     {/* </button> */}
                   </TableBody>
                 ) : (
@@ -814,17 +875,31 @@ export default function Page() {
                     {pastTrade!.map((element) => (
                       <TableRow
                         onClick={() => handleTradeDetailState(true, element)}
-                        className="h-[60px] !my-auto"
+                        className="h-[60px] !my-auto text-lg"
                       >
                         {/* <Checkbox className="!my-auto"></Checkbox> */}
 
-                        <TableCell className="font-medium !my-auto">
+                        <TableCell className=" !my-auto">
                           {element.symbol}
                         </TableCell>
                         <TableCell>{element.position_id}</TableCell>
-                        <TableCell>{element.trade_type}</TableCell>
+                        <TableCell>
+                          {element.trade_type =="buy" ? (
+                            <div className="w-fit !px-6 rounded-2xl font-medium  bg-emerald-200 text-emerald-800">
+                              Buy
+                            </div>
+                          ) : (
+                            <div className="w-fit !px-6 rounded-2xl font-medium  bg-red-300 text-red-500">
+                              Sell
+                            </div>
+                          )}
+                        </TableCell>
                         {/* <TableCell className="">$250.00</TableCell> */}
-                        <TableCell className="">{element.entry_time}</TableCell>
+                        <TableCell className="">
+                          {new Date(
+                            element?.entry_time as string
+                          ).toLocaleDateString("en-GB", options)}
+                        </TableCell>
                         <TableCell className="">
                           {element.profit_loss}
                         </TableCell>
@@ -846,7 +921,7 @@ export default function Page() {
               <div className="flex flex-row w-full justify-between">
                 <div>
                   <h2 className=" text-2xl mb-2">Journal</h2>
-                  <p>Details about the selected trade will go here.</p>
+                  <p>Journal your trade</p>
                 </div>
                 <button
                   onClick={() => handleTradeDetailState(false, null)}
@@ -861,9 +936,6 @@ export default function Page() {
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-8"
                 >
-                  <div className="text-neutral-500">
-                    <h1 className="text-5xl"> {tradeDetail?.symbol}</h1>
-                  </div>
                   <FormField
                     control={form.control}
                     name="strategy"
@@ -871,7 +943,18 @@ export default function Page() {
                       <FormItem>
                         <div className="text-neutral-500">
                           <div className="flex flex-row justify-between items-center">
-                            <span> {tradeDetail?.entry_time}</span>
+                            <div className="text-neutral-500">
+                              <h1 className="text-lg !my-5">
+                                {" Symbol: "}
+                                {tradeDetail?.symbol}
+                              </h1>
+                            </div>
+                            <span className="text-lg">
+                              Date:{" "}
+                              {new Date(
+                                tradeDetail?.entry_time as string
+                              ).toLocaleDateString("en-GB", options)}
+                            </span>
                             <Select
                               onValueChange={field.onChange}
                               defaultValue={field.value}
@@ -883,9 +966,24 @@ export default function Page() {
                               </FormControl>
                               <SelectContent className="!px-[5px]">
                                 {/* For loop through the item */}
-                                <SelectItem value="m@example.com">
-                                  m@example.com
-                                </SelectItem>
+
+                                <SelectGroup className="!px-[5%]">
+                                  <SelectLabel>Period</SelectLabel>
+                                  {userStrategy ? (
+                                    userStrategy?.map((element) => (
+                                      <SelectItem
+                                        value={element.id.toString()}
+                                        className="!px-[10px]"
+                                      >
+                                        {element.name}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="">
+                                      No strategy
+                                    </SelectItem>
+                                  )}
+                                </SelectGroup>
                               </SelectContent>
                             </Select>
                           </div>
@@ -920,7 +1018,7 @@ export default function Page() {
                           <TableCell className="font-medium !my-auto">
                             Trade ID : {tradeDetail?.position_id}
                           </TableCell>
-                          <TableCell>Swap : {tradeDetail?.swap|| 0}</TableCell>
+                          <TableCell>Swap : {tradeDetail?.swap || 0}</TableCell>
                           <TableCell>
                             Commission : {tradeDetail?.commission || 0}
                           </TableCell>
@@ -968,7 +1066,14 @@ export default function Page() {
                           </FormLabel>
                           <FormControl>
                             {/* <Textarea placeholder="Type your message here." {...field} className="h-[300px] !p-1"/> */}
-                            <Input {...field} />
+                            <Input
+                              {...field}
+                              placeholder={
+                                tradeDetail?.trade_images?.pre_trade! ||
+                                "Enter your pre trade link"
+                              }
+                              className="!p-2"
+                            />
                           </FormControl>
                         </div>
                       </FormItem>
@@ -983,11 +1088,18 @@ export default function Page() {
                         {/* For the embeded link if nothing is returned then display the input field  else display the embededd link */}
                         <div className="!mb-[10px]">
                           <FormLabel className="!mb-[10px]">
-                            Pre Trade link
+                            Post Trade link
                           </FormLabel>
                           <FormControl>
                             {/* <Textarea placeholder="Type your message here." {...field} className="h-[300px] !p-1"/> */}
-                            <Input {...field} />
+                            <Input
+                              {...field}
+                              placeholder={
+                                tradeDetail?.trade_images?.post_trade! ||
+                                "Enter your post trade link"
+                              }
+                              className="!p-2"
+                            />
                           </FormControl>
                         </div>
                       </FormItem>
@@ -997,7 +1109,7 @@ export default function Page() {
                   <div className="flex flex-row w-full justify-between">
                     <FormField
                       control={form.control}
-                      name="preTradeLink"
+                      name="preTradeNote"
                       render={({ field }) => (
                         <FormItem className=" w-[48%]">
                           {/* For the embeded link if nothing is returned then display the input field  else display the embededd link */}
@@ -1008,7 +1120,10 @@ export default function Page() {
                             </FormLabel>
                             <FormControl>
                               <Textarea
-                                placeholder="Type your message here."
+                                placeholder={
+                                  tradeDetail?.pre_trade_note! ||
+                                  "Enter your pre trade notes"
+                                }
                                 {...field}
                                 className="h-[300px] !p-1"
                               />
@@ -1020,7 +1135,7 @@ export default function Page() {
 
                     <FormField
                       control={form.control}
-                      name="postTradeLink"
+                      name="postTradeNote"
                       render={({ field }) => (
                         <FormItem className=" w-[48%]">
                           <div className=" w-[100%]">
@@ -1029,7 +1144,10 @@ export default function Page() {
                             </FormLabel>
                             <FormControl>
                               <Textarea
-                                placeholder="Type your message here."
+                                placeholder={
+                                  tradeDetail?.pos_trade_note! ||
+                                  "Enter your post trade notes"
+                                }
                                 {...field}
                                 className="h-[300px] !p-1"
                               />
@@ -1045,6 +1163,7 @@ export default function Page() {
                       <h5 className="!my-[10px] w-[100%]">
                         Rate your Pre trade emotion
                       </h5>
+
                       <EmojiRating
                         value={beforeRating}
                         onChange={setBeforeRating}
@@ -1062,7 +1181,7 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="!px-[20px]" >
+                  <Button type="submit" className="!px-[20px]">
                     Submit
                   </Button>
                 </form>

@@ -469,7 +469,7 @@ class Performance:
                     else:
                         short_avg_duration = (avg_duration + time_diff)/2
                 
-                print(str(avg_duration))
+                # print(str(avg_duration))
                 return {
                     "total": str(avg_duration),
                     "long": str(long_avg_duration),

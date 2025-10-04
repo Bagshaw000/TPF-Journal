@@ -22,6 +22,7 @@ class Acc_Model(BaseModel):
 
 class Deal_Req(Acc_Model):
     from_:datetime
+    initial_capital: float | None = None
     
 class Pos_Id(BaseModel):
     pos_id: int

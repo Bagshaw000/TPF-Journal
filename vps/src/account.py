@@ -105,7 +105,7 @@ class Accounts:
         This Function is to setup a user account by API call
     '''
         
-    async def account_setup(self,user_id:str,acc:Deal_Req,starting_bal:float)-> Return_Type:
+    async def account_setup(self,user_id:str,acc:Deal_Req)-> Return_Type:
         try:
             
             # Store the user credential in the database 
@@ -140,7 +140,7 @@ class Accounts:
                                 "platform":acc.platform,
                                 "server_name":acc_info["server"],
                                 "updated_at": datetime.datetime.now().astimezone().strftime("%Y/%m/%d, %H:%M:%S")  ,
-                                "initial_capital" : starting_bal 
+                                "initial_capital" : acc.initial_capital
                             }
                             ).execute()
                         

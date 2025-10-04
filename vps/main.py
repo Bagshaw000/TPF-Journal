@@ -66,7 +66,7 @@ async def producer():
                 
                 for acc in acc_list.data:
                    
-                    # print(acc_list)
+                    
                     await queue.put(acc)
                     await perf_queue.put(acc)
                     fund_det =  Deal_Req(login=int(acc["account_no"]), password=str(acc["password"]),server=str(acc['server_name']),platform='mt5',from_=datetime(2015,1,1))
@@ -77,7 +77,7 @@ async def producer():
                     asyncio.create_task(mt5_obj.get_funding_details(fund_det, acc["id"]))
                     
                     
-            await asyncio.sleep(20)
+            await asyncio.sleep(5)
     except Exception:
         await asyncio.sleep(3)
         
@@ -100,20 +100,21 @@ async def consumer():
         while True:
             user = await queue.get()
 
-            # print(user["id"])
-            # print(user["platform"])
+           
         
             if user["platform"] == "mt5":
                 acc_det =Acc_Model(login=int(user["account_no"]), password=str(user["password"]),server=str(user['server_name']),platform='mt5')
                 
+                
                 user_position = await mt5_obj.get_open_position(acc_det)
-                # print(user_position)
+               
                 
                 if user_position == None:
-                    print("No position returned")
+                  
                     continue
                 else:
                     # This does not allow update of the last open position so do the check in the store open position
+                   
                     await pos_obj.new_store_mt5_open_pos(user_position)     
                  
             
@@ -167,8 +168,9 @@ async def perform_consumer():
                 # print(m12_history)
                 store_all = await perf_obj.store_stat(user["id"], dict_history)
                 
-                print(store_all)
+                # print(store_all)
             perf_queue.task_done()
+            await asyncio.sleep(50)
     except Exception as e:
         print(e)
         await asyncio.sleep(30)
@@ -274,11 +276,11 @@ async def create_user(req:User, res:Return_Type):
     return Return_Type(status=False, msg="Failed", data=None)
 
 @router.post('/account/setup/{user_id}', tags=["account"])
-async def setup_account(user_id:str,req:Deal_Req,starting_bal:float):
+async def setup_account(user_id:str,req:Deal_Req,):
     
     # print(user_id)
     # print(req)
-    res = await acc_obj.account_setup(user_id, req, starting_bal)
+    res = await acc_obj.account_setup(user_id, req)
 
     return res
 

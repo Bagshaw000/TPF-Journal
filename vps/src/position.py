@@ -89,6 +89,7 @@ class Position:
                     trade_data["swap"] = account_val["position"][pos_id].get("swap")
                     
                     # Append the new data to update array
+                    
                     update_open_pos_arr.append(trade_data)
                     
                     
@@ -160,8 +161,10 @@ class Position:
             
             #  This update old position that are still open in the database
             if update_open_pos_arr:
+               
+                
                 await self.update_open_pos(update_open_pos_arr)
-            
+              
             # Store the new open position 
             new_open_position = []
             # For all open position trade that are new add them to the open position table 
@@ -392,20 +395,16 @@ class Position:
     '''
     Update position from open trade database
     '''    
-    async def update_open_pos(self, data:list, pos_id:int):
+    async def update_open_pos(self, data:list):
         try:
+          
+            open_pos = self.supabase.table("open_trade").upsert(data).execute()
             
-            check = await self.check_pos(pos_id)
-            
-            if check.status == True:
-                open_pos = self.supabase.table("open_trade").upsert(data).execute()
+            if open_pos.data:
                 
                 return  Return_Type(status=True,msg="success", data=open_pos.data)
             
-            open_pos = await self.trade_hist.update_trade(data)
-            
-            if open_pos.data:
-                return  Return_Type(status=True,msg="success", data=open_pos.data)
+           
             
             return Return_Type(status=False,msg="fail",data=None)
         except Exception as e:
